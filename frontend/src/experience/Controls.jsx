@@ -11,9 +11,9 @@ export default function Controls() {
       minPolarAngle={Math.PI / 6}  // 30°
       maxPolarAngle={Math.PI / 2}  // 90°
       // Interdire le pan (déplacement latéral de la camera)
-      enablePan={false}
+      
       // Ajuste la vitesse de zoom / rotation
-      zoomSpeed={0.6}
+      zoomSpeed={0.2}
       rotateSpeed={0.2}
     />
   )

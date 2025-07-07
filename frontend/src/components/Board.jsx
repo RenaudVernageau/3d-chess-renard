@@ -1,7 +1,8 @@
 // src/components/Board.jsx
 import React, { useState, useMemo, useCallback, useEffect, Suspense } from "react"
-import { OrbitControls } from "@react-three/drei"
 import { useSpring, a } from "@react-spring/three"
+import { useThree } from "@react-three/fiber"
+import Controls from "../experience/Controls"
 import Lights from "../experience/Lights"
 import useChess from "../hooks/useChess"
 import Pieces from "./Pieces.jsx"
@@ -15,12 +16,12 @@ const castleUrl    = "/sounds/castle.mp3"
 const gameEndUrl   = "/sounds/game-end.mp3"
 
 const FILES = ["a","b","c","d","e","f","g","h"]
-const lightColor = "#eeeed2"
-const darkColor  = "#769656"
+const lightColor = "#c4c0bd"
+const darkColor  = "#2e2b2a"
 const getSquare = (r, c) => FILES[c] + (8 - r)
 
 // Convertit notation échiquier "e4" en position 3D centre-case
-const squareToPosition = (square) => {
+const squareToPosition = square => {
   if (!square) return [0, 0, 0]
   const file = square[0]
   const rank = parseInt(square[1], 10)
@@ -43,43 +44,37 @@ export default function Board() {
   // Joue le son à chaque coup
   useEffect(() => {
     if (!lastMove) return
-    // 1) échec en priorité
     if (lastMove.san?.includes('+')) {
       moveCheckSound.currentTime = 0; moveCheckSound.play();
       return
     }
     const flags = lastMove.flags || ''
-    // 2) capture / en-passant
     if (flags.includes('c') || flags.includes('e')) {
       captureSound.currentTime = 0; captureSound.play();
       return
     }
-    // 3) roque
     if (flags.includes('k') || flags.includes('q')) {
       castleSound.currentTime = 0; castleSound.play();
       return
     }
-    // 4) déplacement simple
     moveSelfSound.currentTime = 0; moveSelfSound.play()
   }, [lastMove])
 
   // Son de fin de partie
   useEffect(() => {
     if (gameOver) {
-      gameEndSound.currentTime = 0
-      gameEndSound.play()
+      gameEndSound.currentTime = 0; gameEndSound.play()
     }
   }, [gameOver])
 
-  // Coups légaux pour surbrillance
+  // Coups légaux
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
     [selected, getLegalMoves]
   )
 
-  // Détection d'échec (+)
+  // Détection d'échec (+) et case du roi adverse
   const isCheck = lastMove?.san?.includes('+')
-  // Trouve la case du roi adverse pour highlight
   const checkSquare = useMemo(() => {
     if (!isCheck) return null
     const opponent = lastMove.color === 'w' ? 'b' : 'w'
@@ -94,13 +89,13 @@ export default function Board() {
     return null
   }, [isCheck, lastMove, board])
 
-  // Animation pulsing pour le highlight échec
+  // Animation pulsing échec
   const { scale: checkScale } = useSpring({
-    to:    { scale: isCheck ? 1.3 : 0 },
+    to:    { scale: isCheck ? 1.1 : 0 },
     from:  { scale: 0 },
     reset: true,
     loop:  isCheck,
-    config:{ duration: 400 }
+    config:{ duration: 800 }
   })
 
   // Gestion clic
@@ -112,33 +107,36 @@ export default function Board() {
       return
     }
     if (sq === selected) {
-      setSelected(null)
-      return
+      setSelected(null); return
     }
-    if (legal.includes(sq)) {
-      move({ from: selected, to: sq })
-    }
+    if (legal.includes(sq)) move({ from: selected, to: sq })
     setSelected(null)
   }, [board, selected, legal, move])
 
   return (
     <group>
-      <OrbitControls makeDefault minPolarAngle={Math.PI/6} maxPolarAngle={Math.PI/2} enablePan={false} />
+      {/* Contrôles: rotation, zoom, pan intuitif */}
+      <Controls />
       <Lights />
 
       {/* Socle sous le plateau */}
-      <mesh receiveShadow position={[0, -0.16, 0]}>
-        <boxGeometry args={[8.8, 0.3, 8.8]} />
-        <meshStandardMaterial color="#1a1818" />
+      <mesh receiveShadow position={[0, -0.16, 0]}>        
+        <boxGeometry args={[8.4, 0.3, 8.4]} />
+        <meshStandardMaterial
+          color="#111111"           // très sombre
+          metalness={0.2}            // un peu métallique
+          roughness={0.8}            // mat
+          envMapIntensity={0.2}      // reflet discret
+        />
       </mesh>
 
-      {/* Damier */}
+      {/* Damier cliquable */}
       {board.map((rowArr, r) =>
         rowArr.map((_, c) => {
-          const sq = getSquare(r, c)
-          const isDark = (r + c) % 2 === 1
+          const sq        = getSquare(r, c)
+          const isDark    = (r + c) % 2 === 1
           const highlight = sq === selected
-          const canMove = legal.includes(sq)
+          const canMove   = legal.includes(sq)
           let color = isDark ? darkColor : lightColor
           if (highlight) color = '#f7e26b'
           else if (canMove) color = rowArr[c] ? '#ff6b6b' : '#f7e26b'
@@ -160,7 +158,7 @@ export default function Board() {
       {/* Highlight échec */}
       {checkSquare && (
         <a.mesh position={squareToPosition(checkSquare)} scale={checkScale}>
-          <torusGeometry args={[0.7, 0.08, 16, 100]} />
+          <torusGeometry args={[0.7, 0.05, 16, 100]} />
           <meshStandardMaterial color="red" transparent opacity={0.5} depthWrite={false} />
         </a.mesh>
       )}
@@ -172,20 +170,10 @@ export default function Board() {
           <Suspense key={i} fallback={null}>
             {lastMove?.to === sq ? (
               <AnimatedPieces from={lastMove.from} to={lastMove.to}>
-                <Pieces
-                  type={p.type}
-                  color={p.color}
-                  position={[p.x - 3.5, 0, p.y - 3.5]}
-                  rotation={[0, -Math.PI / 2, 0]}
-                />
+                <Pieces type={p.type} color={p.color} position={[p.x - 3.5, 0, p.y - 3.5]} rotation={[0, -Math.PI/2, 0]} />
               </AnimatedPieces>
             ) : (
-              <Pieces
-                type={p.type}
-                  color={p.color}
-                  position={[p.x - 3.5, 0, p.y - 3.5]}
-                  rotation={[0, -Math.PI / 2, 0]}
-              />
+              <Pieces type={p.type} color={p.color} position={[p.x - 3.5, 0, p.y - 3.5]} rotation={[0, -Math.PI/2, 0]} />
             )}
           </Suspense>
         )
