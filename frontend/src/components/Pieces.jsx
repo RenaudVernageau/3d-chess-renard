@@ -6,6 +6,17 @@ import { Box3, Vector3, Color } from 'three'
 const DESIRED_HEIGHT  = 0.8
 const PLATE_THICKNESS = 0.1
 
+// Mapping lettre -> nom de fichier
+const TYPE_MAP = {
+  p: 'pawn',
+  r: 'rook',
+  n: 'knight',
+  b: 'bishop',
+  q: 'queen',
+  k: 'king',
+}
+
+// Ajustements d'échelle relatifs par type
 const TYPE_SCALES = {
   pawn:   1.0,
   rook:   0.9,
@@ -15,47 +26,51 @@ const TYPE_SCALES = {
   king:   1.3,
 }
 
-// ** Nouveauté : décalages position par type ** 
+// Décalages positionnels par type pour affiner l'alignement Y
 const TYPE_OFFSETS = {
   pawn:   [0, -0.15, 0],
   rook:   [0, 0.02, 0],
   knight: [0, 0.05, 0],
-  bishop: [0, - 0.04, 0],  // on remonte un peu le fou
-  queen:  [0, -0.03, 0],  // on remonte un peu la reine
-  king:   [0, 0.26, 0],  // on remonte un peu le roi
+  bishop: [0, -0.04, 0],
+  queen:  [0, -0.03, 0],
+  king:   [0, 0.26, 0],
 }
 
 export default function Pieces({ type, color = 'w', position = [0,0,0] }) {
-  const { scene } = useGLTF(`/models/${type}.glb`)
-  const mesh       = useMemo(() => scene.clone(true), [scene])
+  // Détermine le nom de fichier à charger
+  const key  = TYPE_MAP[type] || type
+  const { scene } = useGLTF(`/models/${key}.glb`)
+  
+  // Clone pour ne pas muter l'original
+  const mesh = useMemo(() => scene.clone(true), [scene])
 
-  // 1) uniformise la hauteur
+  // 1) Uniformisation de la hauteur
   const baseScale = useMemo(() => {
     const box  = new Box3().setFromObject(mesh)
     const size = box.getSize(new Vector3())
     return size.y > 0 ? DESIRED_HEIGHT / size.y : 1
   }, [mesh])
 
-  // 2) scale relatif par type
-  const typeScale  = TYPE_SCALES[type] || 1
+  // 2) Échelle relative par type
+  const typeScale  = TYPE_SCALES[key] || 1
   const finalScale = baseScale * typeScale
 
-  // 3) calcul hauteur après scale pour le Y de base
+  // 3) Calcul de l'offset Y de base pour poser la pièce sur le plateau
   const baseYOffset = useMemo(() => {
     const box    = new Box3().setFromObject(mesh)
     const height = box.getSize(new Vector3()).y * finalScale
-    return PLATE_THICKNESS/2 + height/2
+    return PLATE_THICKNESS / 2 + height / 2
   }, [mesh, finalScale])
 
-  // 4) décalage manuel par type
-  const [ox, oy, oz] = TYPE_OFFSETS[type] || [0,0,0]
+  // 4) Décalages manuels par type
+  const [ox, oy, oz] = TYPE_OFFSETS[key] || [0, 0, 0]
 
-  // 5) override couleur
+  // 5) Override de la couleur du matériau
   useMemo(() => {
-    mesh.traverse(n => {
-      if (n.isMesh) {
-        n.material       = n.material.clone()
-        n.material.color = new Color(color==='w'?'#eeeeee':'#222222')
+    mesh.traverse(node => {
+      if (node.isMesh) {
+        node.material       = node.material.clone()
+        node.material.color = new Color(color === 'w' ? '#eeeeee' : '#222222')
       }
     })
   }, [mesh, color])
@@ -63,7 +78,6 @@ export default function Pieces({ type, color = 'w', position = [0,0,0] }) {
   return (
     <primitive
       object={mesh}
-      // on ajoute ox, oy, oz à la position finale
       position={[
         position[0] + ox,
         baseYOffset + oy,

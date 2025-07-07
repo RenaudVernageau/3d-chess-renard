@@ -14,7 +14,7 @@ export default function Controls() {
       enablePan={false}
       // Ajuste la vitesse de zoom / rotation
       zoomSpeed={0.6}
-      rotateSpeed={0.8}
+      rotateSpeed={0.2}
     />
   )
 }

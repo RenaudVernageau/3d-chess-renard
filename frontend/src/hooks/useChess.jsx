@@ -1,38 +1,61 @@
 // src/hooks/useChess.jsx
-import { useMemo, useRef } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { Chess } from 'chess.js'
 
-const TYPE_MAP = {
-  p: 'pawn',
-  r: 'rook',
-  n: 'knight',
-  b: 'bishop',
-  q: 'queen',
-  k: 'king',
-}
+const TYPE_MAP = { p: 'pawn', r: 'rook', n: 'knight', b: 'bishop', q: 'queen', k: 'king' }
 
 export default function useChess() {
-  // Instance persistante de chess.js
+  // 1️⃣ Instance persistante de chess.js
   const chessRef = useRef(new Chess())
   const chess = chessRef.current
 
-  // positions initiales et mises à jour si on bouge plus tard
-  const positions = useMemo(() => {
-    return chess
-      .board()        // Array[8][8]
-      .flat()         // 64 éléments
-      .map((p, idx) => {
-        if (!p) return null
-        const x = idx % 8
-        const y = Math.floor(idx / 8)
-        return {
-          type:  TYPE_MAP[p.type],
-          color: p.color,
-          x, y
-        }
-      })
-      .filter(Boolean)
+  // 2️⃣ State React pour board 2D et dernier coup
+  const [board, setBoard] = useState(chess.board())
+  const [lastMove, setLastMove] = useState(null)
+
+  // 3️⃣ Synchronisation du state à partir de chess.js
+  const sync = useCallback((move) => {
+    setBoard(chess.board())
+    setLastMove(move || null)
   }, [chess])
 
-  return { positions, chess }
+  // 4️⃣ Fonction pour jouer un coup et synchroniser
+  const move = useCallback(({ from, to }) => {
+    const m = chess.move({ from, to, promotion: 'q' })
+    if (m) sync(m)
+  }, [chess, sync])
+
+  // 5️⃣ Helper pour récupérer les coups légaux d’une case
+  const getLegalMoves = useCallback((square) => {
+    return chess.moves({ square, verbose: true }).map(m => m.to)
+  }, [chess])
+
+  // 6️⃣ Au montage, on reset l’échiquier
+  useEffect(() => {
+    chess.reset()
+    sync(null)
+  }, [chess, sync])
+
+  // 7️⃣ Liste des positions flat pour affichage rapide
+  const positions = useMemo(() => {
+    return board.flatMap((rowArr, row) =>
+      rowArr.map((p, col) => {
+        if (!p) return null
+        return {
+          type: TYPE_MAP[p.type],
+          color: p.color,
+          x: col,
+          y: row,
+        }
+      })
+    ).filter(Boolean)
+  }, [board])
+
+  return {
+    board,
+    positions,
+    lastMove,
+    move,
+    getLegalMoves,
+  }
 }
