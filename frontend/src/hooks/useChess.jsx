@@ -1,6 +1,6 @@
 // src/hooks/useChess.jsx
-import { useRef, useState, useEffect, useMemo, useCallback } from "react";
-import { Chess } from "chess.js";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react"
+import { Chess } from "chess.js"
 
 const TYPE_MAP = {
   p: "pawn",
@@ -9,76 +9,68 @@ const TYPE_MAP = {
   b: "bishop",
   q: "queen",
   k: "king",
-};
+}
 
 export default function useChess() {
-  // 1️⃣ Instance persistante de chess.js
-  const chessRef = useRef(new Chess());
-  const chess = chessRef.current;
+  // Instance persistante de chess.js
+  const chessRef = useRef(new Chess())
+  const chess = chessRef.current
 
-  // 2️⃣ State React pour board 2D et dernier coup
-  const [board, setBoard] = useState(chess.board());
-  const [lastMove, setLastMove] = useState(null);
+  // State React pour board 2D et dernier coup
+  const [board, setBoard] = useState(chess.board())
+  const [lastMove, setLastMove] = useState(null)
 
-  // 3️⃣ Synchronisation du state à partir de chess.js
+  // Synchronisation du state à partir de chess.js
   const sync = useCallback(
     (move) => {
-      setBoard(chess.board());
-      setLastMove(move || null);
+      setBoard(chess.board())
+      setLastMove(move || null)
     },
     [chess]
-  );
+  )
 
-  // 4️⃣ Fonction pour jouer un coup et synchroniser
+  // Fonction pour jouer un coup et synchroniser
   const move = useCallback(
     ({ from, to }) => {
-      // compose l’objet coup de façon conditionnelle
-      const moveConfig = { from, to };
-
-      // si c’est un pion qui arrive en promotion (rank 1 ou 8), on ajoute promotion
-      if (from[1] === "7" && to[1] === "8") {
-        moveConfig.promotion = "q";
-      }
-      if (from[1] === "2" && to[1] === "1") {
-        moveConfig.promotion = "q";
-      }
-      // utilise moveConfig au lieu d'une promotion forcée
-      const m = chess.move(moveConfig);
-      if (m) sync(m);
+      const moveConfig = { from, to }
+      // promotion uniquement pour pion
+      if (from[1] === "7" && to[1] === "8") moveConfig.promotion = "q"
+      if (from[1] === "2" && to[1] === "1") moveConfig.promotion = "q"
+      const m = chess.move(moveConfig)
+      if (m) sync(m)
     },
     [chess, sync]
-  );
+  )
 
-  // 5️⃣ Helper pour récupérer les coups légaux d’une case
+  // Helper pour récupérer les coups légaux d’une case
   const getLegalMoves = useCallback(
     (square) => {
-      return chess.moves({ square, verbose: true }).map((m) => m.to);
+      return chess.moves({ square, verbose: true }).map((m) => m.to)
     },
     [chess]
-  );
+  )
 
-  // 6️⃣ Au montage, on reset l’échiquier
+  // Au montage, on reset l’échiquier
   useEffect(() => {
-    chess.reset();
-    sync(null);
-  }, [chess, sync]);
+    chess.reset()
+    sync(null)
+  }, [chess, sync])
 
-  // 7️⃣ Liste des positions flat pour affichage rapide
-  const positions = useMemo(() => {
-    return board
-      .flatMap((rowArr, row) =>
-        rowArr.map((p, col) => {
-          if (!p) return null;
-          return {
-            type: TYPE_MAP[p.type],
-            color: p.color,
-            x: col,
-            y: row,
-          };
-        })
-      )
-      .filter(Boolean);
-  }, [board]);
+  // Positions flat pour affichage
+  const positions = useMemo(
+    () =>
+      board.flatMap((rowArr, row) =>
+        rowArr.map((p, col) =>
+          p
+            ? { type: TYPE_MAP[p.type], color: p.color, x: col, y: row }
+            : null
+        )
+      ).filter(Boolean),
+    [board]
+  )
+
+  // Flag fin de partie (checkmate, draw, stalemate) via méthode à jour
+  const gameOver = chess.isGameOver()
 
   return {
     board,
@@ -86,5 +78,6 @@ export default function useChess() {
     lastMove,
     move,
     getLegalMoves,
-  };
+    gameOver,
+  }
 }
