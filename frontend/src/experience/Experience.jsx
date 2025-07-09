@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import Lights from "./Lights.jsx";
 import Board from "../components/Board.jsx";
-import { OrbitControls } from "@react-three/drei";
 import Controls from "./Controls.jsx";
 
 export default function Experience() {
