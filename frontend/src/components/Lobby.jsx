@@ -1,78 +1,94 @@
 // src/components/Lobby.jsx
-import React, { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAuth } from "../hooks/useAuth"
-import useWebSocket from "../hooks/useWebSocket"
-import { createRoom, joinRoom } from "../api/game"
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Lobby() {
-  const { token } = useAuth()
-  const { socket, connect, on, emit } = useWebSocket(token)
-  const nav = useNavigate()
-
-  // ID saisi pour rejoindre
-  const [joinId, setJoinId] = useState("")
-
-  // 1) On connecte la socket au chargement du composant
-  useEffect(() => {
-    if (token) connect()
-  }, [token, connect])
-
-  // 2) Écoute des events WebSocket
-  useEffect(() => {
-    if (!socket) return
-
-    on("room_created", ({ roomId }) => {
-      // une fois la room créée, on navigue vers /play?room=xxx
-      nav(`/play?room=${roomId}`)
-    })
-
-    on("room_joined", ({ roomId }) => {
-      nav(`/play?room=${roomId}`)
-    })
-
-    on("error", ({ message }) => {
-      alert("Erreur WS : " + message)
-    })
-  }, [socket, on, nav])
+  const navigate = useNavigate();
+  const [roomId, setRoomId] = useState("");
 
   const handleCreate = () => {
-    try {
-      createRoom(socket)
-    } catch (e) {
-      alert(e.message)
-    }
-  }
+    // ici on redirige vers /play (ou créer la room côté WS avant)
+    navigate("/play");
+  };
 
   const handleJoin = () => {
-    if (!joinId.trim()) {
-      alert("Merci de saisir un roomId.")
-      return
+    if (roomId.trim()) {
+      navigate(`/play?room=${roomId.trim()}`);
     }
-    try {
-      joinRoom(socket, joinId.trim())
-    } catch (e) {
-      alert(e.message)
-    }
-  }
+  };
 
   return (
-    <div style={{ padding: 20, maxWidth: 400, margin: "0 auto" }}>
-      <h1>Lobby</h1>
+    <div
+      className="
+        min-h-screen flex items-center justify-center
+        bg-gradient-to-br from-gray-100 to-gray-300
+        dark:from-gray-800 dark:to-gray-900
+        transition-colors duration-500
+      "
+    >
+      {/* Toggle thème */}
+      <nav className="absolute top-4 right-4 flex flex-end">
+        <ThemeToggle />
+      </nav>
 
-      <button onClick={handleCreate} style={{ marginBottom: 12 }}>
-        ➕ Créer une nouvelle partie
-      </button>
+      {/* Carte semi-transparente */}
+      <div
+        className="
+          bg-white bg-opacity-30 backdrop-blur-md
+          dark:bg-gray-800 dark:bg-opacity-40
+          p-8 rounded-xl shadow-xl
+          w-full max-w-md
+        "
+      >
+        <h1 className="text-3xl font-extrabold text-center text-gray-900 dark:text-gray-100 mb-8">
+          Salon de jeu
+        </h1>
 
-      <div>
-        <input
-          placeholder="Entrer room ID"
-          value={joinId}
-          onChange={(e) => setJoinId(e.target.value)}
-          style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        />
-        <button onClick={handleJoin}>🔗 Rejoindre une partie</button>
+        {/* Bouton créer */}
+        <button
+          onClick={handleCreate}
+          className="
+            w-full py-3 mb-6
+            bg-blue-600 hover:bg-blue-700
+            text-white font-semibold
+            rounded-lg
+            transition
+          "
+        >
+          Créer une partie
+        </button>
+
+        {/* Rejoindre une partie */}
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            placeholder="ID de la room"
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+            className="
+              flex-1 px-4 py-2
+              bg-gray-100 dark:bg-gray-700
+              text-gray-900 dark:text-gray-100
+              rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-blue-500
+              transition
+            "
+          />
+          <button
+            onClick={handleJoin}
+            className="
+              px-4 py-2
+              bg-green-600 hover:bg-green-700
+              text-white font-semibold
+              rounded-lg
+              transition
+            "
+          >
+            Rejoindre
+          </button>
+        </div>
       </div>
     </div>
-  )
+  );
 }
