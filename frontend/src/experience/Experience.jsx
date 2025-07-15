@@ -4,7 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
 import Board from "../components/Board.jsx";
-import ThemeToggle from "../components/ThemeToggle.jsx";
+
 
 export default function Experience() {
   return (
@@ -14,7 +14,7 @@ export default function Experience() {
         <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
           3D Chess
         </h1>
-        <ThemeToggle />
+        
       </header>
 
       {/* 3D canvas */}

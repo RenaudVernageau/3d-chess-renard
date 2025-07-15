@@ -1,7 +1,6 @@
 // src/components/Lobby.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ThemeToggle from "./ThemeToggle";
 
 export default function Lobby() {
   const navigate = useNavigate();
@@ -27,11 +26,6 @@ export default function Lobby() {
         transition-colors duration-500
       "
     >
-      {/* Toggle thème */}
-      <nav className="absolute top-4 right-4 flex flex-end">
-        <ThemeToggle />
-      </nav>
-
       {/* Carte semi-transparente */}
       <div
         className="

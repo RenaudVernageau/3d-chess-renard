@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import ThemeToggle from "./ThemeToggle";
+
 
 export default function Login() {
   const navigate = useNavigate();
@@ -33,9 +33,7 @@ export default function Login() {
         transition-colors duration-500
       "
     >
-      <nav className="w-full max-w-md mb-6 px-4 flex justify-end">
-        <ThemeToggle />
-      </nav>
+      <nav className="w-full max-w-md mb-6 px-4 flex justify-end"></nav>
 
       <form
         onSubmit={handleSubmit}
