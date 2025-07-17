@@ -1,16 +1,21 @@
 // src/components/NavBar.jsx
 import React from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function NavBar() {
   const { token, logout, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  // Do not render any nav links on login or register pages
+  const hideOn = ['/login', '/register']
+  const isHidden = hideOn.includes(location.pathname)
 
   return (
     <nav className="w-full bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
@@ -18,7 +23,8 @@ export default function NavBar() {
         3D Chess
       </NavLink>
 
-      {token && (
+      {/* Only show Logout when user is authenticated and not on login/register */}
+      {!isHidden && user && (
         <div className="flex items-center space-x-6">
           <NavLink
             to="/lobby"
@@ -37,7 +43,7 @@ export default function NavBar() {
             Game
           </NavLink>
 
-          <span className="text-sm">{user?.username}</span>
+          <span className="text-sm">{user.username}</span>
 
           <button
             onClick={handleLogout}
