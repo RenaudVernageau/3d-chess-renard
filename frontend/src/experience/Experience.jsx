@@ -2,6 +2,7 @@
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate } from "react-router-dom";
+import { io } from "socket.io-client";
 import { useAuth } from "../hooks/useAuth";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
@@ -19,6 +20,7 @@ export default function Experience() {
 
   useEffect(() => {
     if (!roomId) return;
+
     // Connexion WS avec JWT
     const socket = io(import.meta.env.VITE_WS_URL, {
       auth: { token: user.token },
