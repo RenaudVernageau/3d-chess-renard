@@ -1,7 +1,7 @@
 // src/App.jsx
 import React from "react";
 import {
-  HashRouter as Router,
+  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -37,15 +37,23 @@ export default function App() {
             }
           />
           <Route
-            path="/play"
+            path="/play/:roomId"
             element={
               <PrivateRoute>
                 <Experience />
               </PrivateRoute>
             }
           />
-          {/* Redirect all unknown routes to lobby */}
-          <Route path="*" element={<Navigate to="/lobby" replace />} />
+          {/* Redirect root to login if not auth, else lobby */}
+          <Route
+            path="/"
+            element={<Navigate to="/lobby" replace />}
+          />
+          {/* Catch-all: if auth go to lobby, else login */}
+          <Route
+            path="*"
+            element={<Navigate to="/login" replace />}
+          />
         </Routes>
       </Router>
     </AuthProvider>
