@@ -71,7 +71,7 @@ export default function Experience() {
       {/* Header full width */}
       <header className="flex items-center justify-between px-6 py-4 bg-black text-white w-full">
         {/* Players list */}
-        <div className="text-lg">Joueurs : <strong>{players.join(", ")}</strong></div>
+        <div className="text-lg">Joueurs : {players.join(", ")}</div>
 
         {/* Color emoji */}
         <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
