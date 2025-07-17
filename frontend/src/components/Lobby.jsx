@@ -1,113 +1,68 @@
 // src/components/Lobby.jsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createRoom, joinRoom } from "../api/game";
-import { useAuth } from "../hooks/useAuth";
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import useWebSocket from '../hooks/useWebSocket'
 
 export default function Lobby() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [roomId, setRoomId] = useState("");
-  const [error, setError] = useState("");
+  const { user, token } = useAuth()
+  const navigate = useNavigate()
+  const socket = useWebSocket()
+  const [roomId, setRoomId] = useState('')
+  const [input, setInput] = useState('')
 
-  const handleCreate = async () => {
-    setError("");
-    try {
-      // Appel à l’API pour créer une room protégée par JWT
-      const { roomId: newRoomId } = await createRoom();
-      // Navigue vers l’écran de jeu avec le roomId
-      navigate(`/play?room=${newRoomId}`);
-    } catch (err) {
-      console.error(err);
-      setError("Impossible de créer la partie.");
+  useEffect(() => {
+    if (!token) return
+    // Listen for room creation
+    socket.on('room_created', ({ roomId }) => {
+      console.log('🟢 room_created:', roomId)
+      navigate(`/play/${roomId}`)
+    })
+    // Listen for join acknowledgement
+    socket.on('room_joined', ({ roomId }) => {
+      console.log('🟢 room_joined:', roomId)
+      navigate(`/play/${roomId}`)
+    })
+    return () => {
+      socket.off('room_created')
+      socket.off('room_joined')
     }
-  };
+  }, [socket, navigate, token])
 
-  const handleJoin = async () => {
-    setError("");
-    if (!roomId.trim()) {
-      setError("Saisis un ID de room.");
-      return;
-    }
-    try {
-      // Appel à l’API pour rejoindre la room
-      await joinRoom(roomId.trim(), user.username);
-      navigate(`/play?room=${roomId.trim()}`);
-    } catch (err) {
-      console.error(err);
-      setError(err.error || "Impossible de rejoindre la partie.");
-    }
-  };
+  const handleCreate = () => {
+    console.log('🔴 emit create_room')
+    socket.emit('create_room')
+  }
+
+  const handleJoin = () => {
+    if (!input) return
+    console.log('🔴 emit join_room', input)
+    socket.emit('join_room', { roomId: input })
+  }
 
   return (
-    <div
-      className="
-        min-h-screen flex items-center justify-center
-        bg-gradient-to-br from-stone-100 to-stone-300
-        dark:from-stone-800 dark:to-stone-900
-        transition-colors duration-500
-      "
-    >
-      <div
-        className="
-          bg-white bg-opacity-30 backdrop-blur-md
-          dark:bg-stone-800 dark:bg-opacity-40
-          p-8 rounded-xl shadow-xl
-          w-full max-w-md
-        "
+    <div className="max-w-md mx-auto mt-12 bg-white p-6 rounded shadow">
+      <h2 className="text-xl font-bold mb-4">Salon de jeu</h2>
+      <button
+        onClick={handleCreate}
+        className="w-full mb-4 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded"
       >
-        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">
-          Salon de jeu
-        </h1>
-
-        {error && (
-          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
-        )}
-
-        {/* Bouton Créer une partie */}
+        Créer une partie
+      </button>
+      <div className="flex space-x-2">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="ID de la room"
+          className="flex-1 border px-3 py-2 rounded"
+        />
         <button
-          onClick={handleCreate}
-          className="
-            w-full py-3 mb-6
-            bg-blue-600 hover:bg-blue-700
-            text-white font-semibold
-            rounded-lg
-            transition
-          "
+          onClick={handleJoin}
+          className="bg-green-600 hover:bg-green-500 text-white px-4 rounded"
         >
-          Créer une partie
+          Rejoindre
         </button>
-
-        {/* Rejoindre une partie */}
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            placeholder="ID de la room"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            className="
-              flex-1 px-4 py-2
-              bg-stone-100 dark:bg-stone-700
-              text-stone-900 dark:text-stone-100
-              rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-blue-500
-              transition
-            "
-          />
-          <button
-            onClick={handleJoin}
-            className="
-              px-4 py-2
-              bg-green-600 hover:bg-green-700
-              text-white font-semibold
-              rounded-lg
-              transition
-            "
-          >
-            Rejoindre
-          </button>
-        </div>
       </div>
     </div>
-  );
+  )
 }
