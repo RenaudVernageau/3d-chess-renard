@@ -68,28 +68,26 @@ export default function Experience() {
 
   return (
     <div className="flex flex-col w-full h-screen">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
-        <div className="flex items-center space-x-4">
-            {/* Liste des joueurs */}
-            <div>Joueurs : {players.join(", ")}</div>
-          {/* Emoji couleur */}
-          <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
-          {/* Numéro de room et copie */}
-          <div className="flex items-center space-x-2">
-            <span>Room : <strong>{roomId}</strong></span>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(roomId);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="text-sm p-1 bg-gray-700 rounded hover:bg-gray-600 transition"
-              title="Copier l'ID de la room"
-            >
-              {copied ? '✅' : '📋'}
-            </button>
-          </div>
+      {/* Header full width */}
+      <header className="flex items-center justify-between px-6 py-4 bg-black text-white w-full">
+        {/* Players list */}
+        <div className="text-sm">Joueurs : {players.join(", ")}</div>
+
+        {/* Color emoji */}
+        <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
+
+        {/* Clickable roomId (copy) */}
+        <div
+          className="flex items-center space-x-2 cursor-pointer"
+          onClick={() => {
+            navigator.clipboard.writeText(roomId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          title="Cliquez pour copier l'ID de la room"
+        >
+          <span className="text-sm underline">Room : <strong>{roomId}</strong></span>
+          <span className="text-lg">{copied ? '✅' : '📋'}</span>
         </div>
       </header>
 
