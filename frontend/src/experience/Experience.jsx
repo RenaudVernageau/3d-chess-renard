@@ -1,7 +1,7 @@
 // src/experience/Experience.jsx
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
-import { io } from "socket.io-client";
+import { useParams, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
@@ -12,19 +12,17 @@ export default function Experience() {
   const [players, setPlayers] = useState([]);
   const [connected, setConnected] = useState(false);
   const socketRef = useRef(null);
+  const boardRef = useRef(null);
 
-  // On récupère roomId depuis l’URL : /play?room=xxxx
-  const params = new URLSearchParams(window.location.search);
-  const roomId = params.get("room");
+  // Récupérer le roomId depuis le paramètre de route
+  const { roomId } = useParams();
 
   useEffect(() => {
-    if (!roomId) {
-      console.error("No roomId in URL");
-      return;
-    }
+    if (!roomId) return;
     // Connexion WS avec JWT
     const socket = io(import.meta.env.VITE_WS_URL, {
       auth: { token: user.token },
+      transports: ["websocket"],
     });
     socketRef.current = socket;
 
@@ -33,13 +31,11 @@ export default function Experience() {
       setConnected(true);
     });
 
-    socket.on("room_joined", ({ roomId: rid, players }) => {
+    socket.on("room_joined", ({ players }) => {
       setPlayers(players);
     });
 
     socket.on("move_piece", (move) => {
-      // Si Board gère les moves via props, ou via ref
-      // Ici on passe directement à Board via ref (voir ci‑dessous)
       if (boardRef.current?.applyMove) {
         boardRef.current.applyMove(move);
       }
@@ -54,15 +50,13 @@ export default function Experience() {
     });
 
     return () => {
+      socket.emit("leave_room", { roomId });
       socket.disconnect();
     };
   }, [roomId, user.token]);
 
-  // Ref pour appeler les méthodes de Board
-  const boardRef = useRef(null);
-
   if (!roomId) {
-    return <div className="p-4">Aucun room spécifié.</div>;
+    return <Navigate to="/lobby" replace />;
   }
   if (!connected) {
     return (
@@ -74,25 +68,18 @@ export default function Experience() {
 
   return (
     <div className="flex flex-col w-full h-screen">
-      {/* Navbar / Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-white shadow-md">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
         <div>Joueurs : {players.join(", ")}</div>
+        <div>Room : {roomId}</div>
       </header>
 
       {/* Canvas 3D */}
       <div className="flex-1 relative">
-        <Canvas
-          flat
-          shadows
-          camera={{ fov: 45, near: 0.1, far: 200, position: [4, 8, 10] }}
-        >
+        <Canvas flat shadows camera={{ fov: 45, near: 0.1, far: 200, position: [4, 8, 10] }}>
           <Controls />
           <Lights />
           <Suspense fallback={null}>
-            {/* 
-              On passe socket & roomId à Board pour qu’il émette
-              socket.emit('move_piece', { roomId, move })
-            */}
             <Board ref={boardRef} socket={socketRef.current} roomId={roomId} />
           </Suspense>
         </Canvas>
