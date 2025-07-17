@@ -18,8 +18,8 @@ export default function NavBar() {
   const isHidden = hideOn.includes(location.pathname);
 
   return (
-    <nav className="w-full bg-black-800 text-white px-4 py-3 flex justify-between items-center">
-      <NavLink to="/" className="text-2xl font-bold hover:text-black-300">
+    <nav className="w-full bg-stone-800 text-white px-4 py-3 flex justify-between items-center">
+      <NavLink to="/" className="text-2xl font-bold hover:text-stone-300">
         Roi des jeux 👑
       </NavLink>
 

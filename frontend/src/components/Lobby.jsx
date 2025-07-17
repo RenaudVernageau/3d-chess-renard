@@ -43,20 +43,20 @@ export default function Lobby() {
     <div
       className="
         min-h-screen flex items-center justify-center
-        bg-gradient-to-br from-black-100 to-black-300
-        dark:from-black-800 dark:to-black-900
+        bg-gradient-to-br from-stone-100 to-stone-300
+        dark:from-stone-800 dark:to-stone-900
         transition-colors duration-500
       "
     >
       <div
         className="
           bg-white bg-opacity-30 backdrop-blur-md
-          dark:bg-black-800 dark:bg-opacity-40
+          dark:bg-stone-800 dark:bg-opacity-40
           p-8 rounded-xl shadow-xl
           w-full max-w-md
         "
       >
-        <h1 className="text-3xl font-extrabold text-center text-black-900 dark:text-black-100 mb-8">
+        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">
           Salon de jeu
         </h1>
 
@@ -87,8 +87,8 @@ export default function Lobby() {
             onChange={(e) => setRoomId(e.target.value)}
             className="
               flex-1 px-4 py-2
-              bg-black-100 dark:bg-black-700
-              text-black-900 dark:text-black-100
+              bg-stone-100 dark:bg-stone-700
+              text-stone-900 dark:text-stone-100
               rounded-lg
               focus:outline-none focus:ring-2 focus:ring-blue-500
               transition

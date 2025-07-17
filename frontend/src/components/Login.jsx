@@ -27,8 +27,8 @@ export default function Login() {
     <div
       className="
         min-h-screen flex flex-col items-center justify-center
-        bg-gradient-to-b from-white to-black-100
-        dark:from-black-800 dark:to-black-900
+        bg-gradient-to-b from-white to-stone-100
+        dark:from-stone-800 dark:to-stone-900
         transition-colors duration-500
       "
     >
@@ -36,7 +36,7 @@ export default function Login() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-black-800 p-8 rounded-lg shadow-xl w-full max-w-md"
+        className="bg-stone-800 p-8 rounded-lg shadow-xl w-full max-w-md"
       >
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
           Connexion
@@ -47,7 +47,7 @@ export default function Login() {
         )}
 
         <label className="block mb-4">
-          <span className="text-black-300">Nom d’utilisateur</span>
+          <span className="text-stone-300">Nom d’utilisateur</span>
           <input
             name="username"
             value={form.username}
@@ -55,14 +55,14 @@ export default function Login() {
             required
             className="
               mt-1 block w-full px-3 py-2
-              bg-black-700 text-white rounded
+              bg-stone-700 text-white rounded
               focus:outline-none focus:ring-2 focus:ring-blue-500
             "
           />
         </label>
 
         <label className="block mb-6">
-          <span className="text-black-300">Mot de passe</span>
+          <span className="text-stone-300">Mot de passe</span>
           <input
             name="password"
             type="password"
@@ -71,7 +71,7 @@ export default function Login() {
             required
             className="
               mt-1 block w-full px-3 py-2
-              bg-black-700 text-white rounded
+              bg-stone-700 text-white rounded
               focus:outline-none focus:ring-2 focus:ring-blue-500
             "
           />
@@ -87,7 +87,7 @@ export default function Login() {
           Se connecter
         </button>
 
-        <p className="mt-4 text-black-400 text-center text-sm">
+        <p className="mt-4 text-stone-400 text-center text-sm">
           Pas encore de compte ?{" "}
           <Link to="/register" className="text-blue-400 hover:underline">
             Inscrivez-vous
