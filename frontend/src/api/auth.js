@@ -1,9 +1,16 @@
-// src/api/auth.js
-export async function login({ username, password }) {
-  // simulez un appel HTTP
-  return { token: "fake-jwt-token" };
+// frontend/src/api/auth.js
+import api from './index';
+
+export function register({ username, password }) {
+  return api('/auth/register', {
+    method: 'POST',
+    body: { username, password },
+  });
 }
-export async function register({ username, password }) {
-  // simulez un appel HTTP
-  return {};
+
+export function login({ username, password }) {
+  return api('/auth/login', {
+    method: 'POST',
+    body: { username, password },
+  });
 }

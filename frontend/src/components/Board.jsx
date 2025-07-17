@@ -5,6 +5,8 @@ import React, {
   useCallback,
   useEffect,
   Suspense,
+  forwardRef,
+  useImperativeHandle
 } from "react";
 import { useSpring, a } from "@react-spring/three";
 import Controls from "../experience/Controls";
@@ -34,7 +36,7 @@ const squareToPosition = (square) => {
   return [col - 3.5, 0.12, row - 3.5];
 };
 
-export default function Board() {
+export default forwardRef(function Board({ socket, roomId }, ref) {
   const {
     board,
     positions,
@@ -45,6 +47,13 @@ export default function Board() {
     gameOver,
   } = useChess();
   const [selected, setSelected] = useState(null);
+
+  // Expose applyMove for external calls (e.g. from WS)
+  useImperativeHandle(ref, () => ({
+    applyMove: ({ from, to }) => {
+      move({ from, to });
+    },
+  }));
 
   // Précharge des sons
   const moveSelfSound = useMemo(() => new Audio(moveSelfUrl), []);
@@ -115,21 +124,19 @@ export default function Board() {
     config: { duration: 800 },
   });
 
-  // Gestion du clic amélioriée :
-  // - cliquer sur une de vos pièces change immédiatement la sélection
-  // - cliquer sur une case vide/jouable joue le coup si légal
+  // Gestion du clic améliorée + émission WS
   const handleClick = useCallback(
     (r, c) => {
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
-      // 1) Si on clique sur l'une de nos pièces : on change tout de suite la sélection
+      // 1) Si on clique sur l'une de nos pièces
       if (piece && piece.color === turn) {
         setSelected(sq);
         return;
       }
 
-      // 2) Si rien n'est sélectionné ou on a cliqué hors de nos pièces, on ignore
+      // 2) Si rien n'est sélectionné
       if (!selected) return;
 
       // 3) Cliquer sur la même case désélectionne
@@ -138,15 +145,21 @@ export default function Board() {
         return;
       }
 
-      // 4) Si c'est un coup légal, on joue
+      // 4) Si c'est un coup légal
       if (legal.includes(sq)) {
+        // Appliquer localement
         move({ from: selected, to: sq });
+        // Envoyer au serveur pour diffusion
+        socket.emit("move_piece", {
+          roomId,
+          move: { from: selected, to: sq },
+        });
       }
 
       // 5) Toujours désélectionner ensuite
       setSelected(null);
     },
-    [board, selected, legal, move, turn]
+    [board, selected, legal, move, turn, socket, roomId]
   );
 
   return (
@@ -230,4 +243,4 @@ export default function Board() {
       })}
     </group>
   );
-}
+});

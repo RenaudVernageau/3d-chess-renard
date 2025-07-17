@@ -1,42 +1,47 @@
-// src/hooks/useAuth.jsx
-import React, { createContext, useContext, useState, useEffect } from "react";
-import * as authAPI from "../api/auth";
+// frontend/src/hooks/useAuth.js
+import { createContext, useContext, useState, useEffect } from 'react';
+import { login as apiLogin, register as apiRegister } from '../api/auth';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('token');
+    const username = localStorage.getItem('username');
+    return token && username ? { username, token } : null;
+  });
 
-  // Si vous stockez le token en localStorage :
-  useEffect(() => {
-    const t = localStorage.getItem("token");
-    if (t) setToken(t);
-  }, []);
+  // Effect pour rediriger ou rafraîchir si besoin peut être ajouté ici
 
   const login = async ({ username, password }) => {
-    const { token: newToken } = await authAPI.login({ username, password });
-    setToken(newToken);
-    localStorage.setItem("token", newToken);
+    const { token, userId } = await apiLogin({ username, password });
+    localStorage.setItem('token', token);
+    localStorage.setItem('username', username);
+    setUser({ username, token });
+    return { userId, token };
   };
 
   const register = async ({ username, password }) => {
-    await authAPI.register({ username, password });
-    // vous pouvez automatiquement faire login() après l’inscription
+    const { userId, token } = await apiRegister({ username, password });
+    // On ne loggue pas automatiquement, on peut rediriger vers /login
+    return { userId, token };
   };
 
   const logout = () => {
-    setToken(null);
-    localStorage.removeItem("token");
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ token, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// hook pour consommer le contexte
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
+  return ctx;
+};

@@ -1,19 +1,41 @@
 // src/components/Lobby.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createRoom, joinRoom } from "../api/game";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Lobby() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [roomId, setRoomId] = useState("");
+  const [error, setError] = useState("");
 
-  const handleCreate = () => {
-    // ici on redirige vers /play (ou créer la room côté WS avant)
-    navigate("/play");
+  const handleCreate = async () => {
+    setError("");
+    try {
+      // Appel à l’API pour créer une room protégée par JWT
+      const { roomId: newRoomId } = await createRoom();
+      // Navigue vers l’écran de jeu avec le roomId
+      navigate(`/play?room=${newRoomId}`);
+    } catch (err) {
+      console.error(err);
+      setError("Impossible de créer la partie.");
+    }
   };
 
-  const handleJoin = () => {
-    if (roomId.trim()) {
+  const handleJoin = async () => {
+    setError("");
+    if (!roomId.trim()) {
+      setError("Saisis un ID de room.");
+      return;
+    }
+    try {
+      // Appel à l’API pour rejoindre la room
+      await joinRoom(roomId.trim(), user.username);
       navigate(`/play?room=${roomId.trim()}`);
+    } catch (err) {
+      console.error(err);
+      setError(err.error || "Impossible de rejoindre la partie.");
     }
   };
 
@@ -26,7 +48,6 @@ export default function Lobby() {
         transition-colors duration-500
       "
     >
-      {/* Carte semi-transparente */}
       <div
         className="
           bg-white bg-opacity-30 backdrop-blur-md
@@ -39,7 +60,13 @@ export default function Lobby() {
           Salon de jeu
         </h1>
 
-        {/* Bouton créer */}
+        {error && (
+          <p className="text-red-500 text-sm mb-4 text-center">
+            {error}
+          </p>
+        )}
+
+        {/* Bouton Créer une partie */}
         <button
           onClick={handleCreate}
           className="
