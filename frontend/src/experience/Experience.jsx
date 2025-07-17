@@ -74,9 +74,7 @@ export default function Experience() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
         <div>Joueurs : {players.join(", ")}</div>
-        <div>
-          Vous jouez en <strong>{color}</strong>
-        </div>
+        <div> {color === "white" ? "⚪️" : "⚫️"}</div>
         <div>
           Room : <strong>{roomId}</strong>
         </div>
