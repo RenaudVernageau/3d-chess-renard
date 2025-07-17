@@ -13,6 +13,7 @@ export default function Experience() {
   const [players, setPlayers] = useState([]);
   const [connected, setConnected] = useState(false);
   const [color, setColor] = useState(null); // "white" or "black"
+  const [copied, setCopied] = useState(false);
   const socketRef = useRef(null);
   const boardRef = useRef(null);
 
@@ -35,17 +36,12 @@ export default function Experience() {
 
     socket.on("room_joined", ({ players: joinedPlayers }) => {
       setPlayers(joinedPlayers);
-      // Determine color: creator (first in list) is white
       const isWhite = joinedPlayers[0] === user.username;
       setColor(isWhite ? "white" : "black");
     });
 
     socket.on("move_piece", (move) => {
       boardRef.current?.applyMove(move);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("WS Error:", err.message);
     });
 
     socket.on("disconnect", () => {
@@ -59,24 +55,41 @@ export default function Experience() {
   }, [roomId, user.username, user.token]);
 
   if (!roomId) return <Navigate to="/lobby" replace />;
-  if (!connected || !color)
+  if (!connected || !color) {
     return (
       <div className="p-4">
         Connexion à la partie <strong>{roomId}</strong>…
       </div>
     );
+  }
 
-  // Camera initial positions: white at [4,8,10], black mirrored [-4,8,-10]
+  // Camera initial positions
   const initialCamPos = color === "white" ? [4, 8, 10] : [-4, 8, -10];
 
   return (
     <div className="flex flex-col w-full h-screen">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
-        <div>Joueurs : {players.join(", ")}</div>
-        <div> {color === "white" ? "⚪️" : "⚫️"}</div>
-        <div>
-          Room : <strong>{roomId}</strong>
+        <div className="flex items-center space-x-4">
+            {/* Liste des joueurs */}
+            <div>Joueurs : {players.join(", ")}</div>
+          {/* Emoji couleur */}
+          <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
+          {/* Numéro de room et copie */}
+          <div className="flex items-center space-x-2">
+            <span>Room : <strong>{roomId}</strong></span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(roomId);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="text-sm p-1 bg-gray-700 rounded hover:bg-gray-600 transition"
+              title="Copier l'ID de la room"
+            >
+              {copied ? '✅' : '📋'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -90,12 +103,7 @@ export default function Experience() {
           <Controls isWhite={color === "white"} />
           <Lights />
           <Suspense fallback={null}>
-            <Board
-              ref={boardRef}
-              socket={socketRef.current}
-              roomId={roomId}
-              color={color}
-            />
+            <Board ref={boardRef} socket={socketRef.current} roomId={roomId} color={color} />
           </Suspense>
         </Canvas>
       </div>
