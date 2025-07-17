@@ -74,7 +74,12 @@ export default function Experience() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-black text-white">
         <div>Joueurs : {players.join(", ")}</div>
-        <div>Vous jouez en <strong>{color}</strong></div>
+        <div>
+          Vous jouez en <strong>{color}</strong>
+        </div>
+        <div>
+          Room : <strong>{roomId}</strong>
+        </div>
       </header>
 
       {/* Canvas 3D */}
@@ -87,7 +92,12 @@ export default function Experience() {
           <Controls isWhite={color === "white"} />
           <Lights />
           <Suspense fallback={null}>
-            <Board ref={boardRef} socket={socketRef.current} roomId={roomId} color={color} />
+            <Board
+              ref={boardRef}
+              socket={socketRef.current}
+              roomId={roomId}
+              color={color}
+            />
           </Suspense>
         </Canvas>
       </div>
