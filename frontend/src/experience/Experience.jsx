@@ -71,7 +71,7 @@ export default function Experience() {
       {/* Header full width */}
       <header className="flex items-center justify-between px-6 py-4 bg-black text-white w-full">
         {/* Players list */}
-        <div className="text-sm">Joueurs : {players.join(", ")}</div>
+        <div className="text-lg">Joueurs : <strong>{players.join(", ")}</strong></div>
 
         {/* Color emoji */}
         <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
@@ -86,7 +86,7 @@ export default function Experience() {
           }}
           title="Cliquez pour copier l'ID de la room"
         >
-          <span className="text-sm underline">Room : <strong>{roomId}</strong></span>
+          <span className="text-lg">Room : <strong>{roomId}</strong></span>
           <span className="text-lg">{copied ? '✅' : '📋'}</span>
         </div>
       </header>
