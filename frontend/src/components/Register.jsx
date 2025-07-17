@@ -27,15 +27,15 @@ export default function Register() {
     <div
       className="
         min-h-screen flex flex-col items-center justify-center
-        bg-gradient-to-b from-white to-gray-100
-        dark:from-gray-800 dark:to-gray-900
+        bg-gradient-to-b from-white to-black-100
+        dark:from-black-800 dark:to-black-900
         transition-colors duration-500
       "
     >
       <nav className="w-full max-w-md mb-6 px-4 flex justify-end"></nav>
       <form
         onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md"
+        className="bg-black-800 p-8 rounded-lg shadow-xl w-full max-w-md"
       >
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
           Inscription
@@ -46,25 +46,25 @@ export default function Register() {
         )}
 
         <label className="block mb-4">
-          <span className="text-gray-300">Nom d’utilisateur</span>
+          <span className="text-black-300">Nom d’utilisateur</span>
           <input
             name="username"
             value={form.username}
             onChange={handleChange}
             required
-            className="mt-1 block w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="mt-1 block w-full px-3 py-2 bg-black-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </label>
 
         <label className="block mb-6">
-          <span className="text-gray-300">Mot de passe</span>
+          <span className="text-black-300">Mot de passe</span>
           <input
             name="password"
             type="password"
             value={form.password}
             onChange={handleChange}
             required
-            className="mt-1 block w-full px-3 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="mt-1 block w-full px-3 py-2 bg-black-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </label>
 
@@ -75,7 +75,7 @@ export default function Register() {
           S’inscrire
         </button>
 
-        <p className="mt-4 text-gray-400 text-center text-sm">
+        <p className="mt-4 text-black-400 text-center text-sm">
           Déjà un compte ?{" "}
           <Link to="/login" className="text-green-400 hover:underline">
             Connectez-vous

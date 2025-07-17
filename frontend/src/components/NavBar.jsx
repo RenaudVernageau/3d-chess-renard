@@ -1,25 +1,25 @@
 // src/components/NavBar.jsx
-import React from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import React from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+    logout();
+    navigate("/login");
+  };
 
   // Hide auth section on login/register pages
-  const hideOn = ['/login', '/register']
-  const isHidden = hideOn.includes(location.pathname)
+  const hideOn = ["/login", "/register"];
+  const isHidden = hideOn.includes(location.pathname);
 
   return (
-    <nav className="w-full bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
-      <NavLink to="/" className="text-2xl font-bold hover:text-gray-300">
+    <nav className="w-full bg-black-800 text-white px-4 py-3 flex justify-between items-center">
+      <NavLink to="/" className="text-2xl font-bold hover:text-black-300">
         Roi des jeux 👑
       </NavLink>
 
@@ -36,5 +36,5 @@ export default function NavBar() {
         </div>
       )}
     </nav>
-  )
+  );
 }

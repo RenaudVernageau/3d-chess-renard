@@ -43,27 +43,25 @@ export default function Lobby() {
     <div
       className="
         min-h-screen flex items-center justify-center
-        bg-gradient-to-br from-gray-100 to-gray-300
-        dark:from-gray-800 dark:to-gray-900
+        bg-gradient-to-br from-black-100 to-black-300
+        dark:from-black-800 dark:to-black-900
         transition-colors duration-500
       "
     >
       <div
         className="
           bg-white bg-opacity-30 backdrop-blur-md
-          dark:bg-gray-800 dark:bg-opacity-40
+          dark:bg-black-800 dark:bg-opacity-40
           p-8 rounded-xl shadow-xl
           w-full max-w-md
         "
       >
-        <h1 className="text-3xl font-extrabold text-center text-gray-900 dark:text-gray-100 mb-8">
+        <h1 className="text-3xl font-extrabold text-center text-black-900 dark:text-black-100 mb-8">
           Salon de jeu
         </h1>
 
         {error && (
-          <p className="text-red-500 text-sm mb-4 text-center">
-            {error}
-          </p>
+          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
         )}
 
         {/* Bouton Créer une partie */}
@@ -89,8 +87,8 @@ export default function Lobby() {
             onChange={(e) => setRoomId(e.target.value)}
             className="
               flex-1 px-4 py-2
-              bg-gray-100 dark:bg-gray-700
-              text-gray-900 dark:text-gray-100
+              bg-black-100 dark:bg-black-700
+              text-black-900 dark:text-black-100
               rounded-lg
               focus:outline-none focus:ring-2 focus:ring-blue-500
               transition

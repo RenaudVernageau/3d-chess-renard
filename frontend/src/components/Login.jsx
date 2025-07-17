@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
-
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -28,8 +27,8 @@ export default function Login() {
     <div
       className="
         min-h-screen flex flex-col items-center justify-center
-        bg-gradient-to-b from-white to-gray-100
-        dark:from-gray-800 dark:to-gray-900
+        bg-gradient-to-b from-white to-black-100
+        dark:from-black-800 dark:to-black-900
         transition-colors duration-500
       "
     >
@@ -37,7 +36,7 @@ export default function Login() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md"
+        className="bg-black-800 p-8 rounded-lg shadow-xl w-full max-w-md"
       >
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
           Connexion
@@ -48,7 +47,7 @@ export default function Login() {
         )}
 
         <label className="block mb-4">
-          <span className="text-gray-300">Nom d’utilisateur</span>
+          <span className="text-black-300">Nom d’utilisateur</span>
           <input
             name="username"
             value={form.username}
@@ -56,14 +55,14 @@ export default function Login() {
             required
             className="
               mt-1 block w-full px-3 py-2
-              bg-gray-700 text-white rounded
+              bg-black-700 text-white rounded
               focus:outline-none focus:ring-2 focus:ring-blue-500
             "
           />
         </label>
 
         <label className="block mb-6">
-          <span className="text-gray-300">Mot de passe</span>
+          <span className="text-black-300">Mot de passe</span>
           <input
             name="password"
             type="password"
@@ -72,7 +71,7 @@ export default function Login() {
             required
             className="
               mt-1 block w-full px-3 py-2
-              bg-gray-700 text-white rounded
+              bg-black-700 text-white rounded
               focus:outline-none focus:ring-2 focus:ring-blue-500
             "
           />
@@ -88,7 +87,7 @@ export default function Login() {
           Se connecter
         </button>
 
-        <p className="mt-4 text-gray-400 text-center text-sm">
+        <p className="mt-4 text-black-400 text-center text-sm">
           Pas encore de compte ?{" "}
           <Link to="/register" className="text-blue-400 hover:underline">
             Inscrivez-vous
