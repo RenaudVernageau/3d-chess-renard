@@ -1,4 +1,5 @@
 // src/components/NavBar.jsx
+import React from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
 
@@ -78,4 +79,5 @@ export default function NavBar() {
         )}
       </div>
     </nav>
-)}
+  );
+}
