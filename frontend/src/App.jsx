@@ -1,7 +1,7 @@
 // src/App.jsx
 import React from "react";
 import {
-  BrowserRouter as Router,
+  HashRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -26,8 +26,11 @@ export default function App() {
       <Router>
         <NavBar />
         <Routes>
+          {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          {/* Protected routes */}
           <Route
             path="/lobby"
             element={
@@ -44,16 +47,12 @@ export default function App() {
               </PrivateRoute>
             }
           />
-          {/* Redirect root to login if not auth, else lobby */}
-          <Route
-            path="/"
-            element={<Navigate to="/lobby" replace />}
-          />
-          {/* Catch-all: if auth go to lobby, else login */}
-          <Route
-            path="*"
-            element={<Navigate to="/login" replace />}
-          />
+          {/* Redirect /play without roomId back to lobby */}
+          <Route path="/play" element={<Navigate to="/lobby" replace />} />
+
+          {/* Root and catch-all redirects */}
+          <Route path="/" element={<Navigate to="/lobby" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
