@@ -20,7 +20,7 @@ export default function NavBar() {
   return (
     <nav className="w-full bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
       <NavLink to="/" className="text-2xl font-bold hover:text-gray-300">
-        3D Chess
+        Roi des jeux 👑
       </NavLink>
 
       {/* Show only user name and logout */}

@@ -76,7 +76,6 @@ export default function Experience() {
     <div className="flex flex-col w-full h-screen">
       {/* Navbar / Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white shadow-md">
-        <h1 className="text-xl font-semibold">3D Chess</h1>
         <div>Joueurs : {players.join(", ")}</div>
       </header>
 
