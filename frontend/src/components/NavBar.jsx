@@ -1,12 +1,11 @@
 // src/components/NavBar.jsx
-import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
-
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import useAuth from '../hooks/useAuth'
 
 export default function NavBar() {
-  const { token, logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     logout()
@@ -16,54 +15,67 @@ export default function NavBar() {
   return (
     <nav className="w-full bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
       <div className="flex items-center space-x-6">
-        <Link to="/" className="text-2xl font-bold hover:text-gray-300">
-          3D Chess
-        </Link>
-        {token && (
+        <NavLink to="/" className="text-2xl font-bold hover:text-gray-300">
+          3D Chess
+        </NavLink>
+
+        {user && (
           <>
-            <Link
+            <NavLink
               to="/lobby"
-              className="hover:text-gray-300"
+              className={({ isActive }) =>
+                `hover:text-gray-300 ${isActive ? 'text-gray-300 underline' : ''}`
+              }
             >
               Lobby
-            </Link>
-            <Link
+            </NavLink>
+            <NavLink
               to="/play"
-              className="hover:text-gray-300"
+              className={({ isActive }) =>
+                `hover:text-gray-300 ${isActive ? 'text-gray-300 underline' : ''}`
+              }
             >
               Game
-            </Link>
+            </NavLink>
           </>
         )}
       </div>
 
       <div className="flex items-center space-x-4">
-        
-
-        {token ? (
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition"
-          >
-            Déconnexion
-          </button>
+        {user ? (
+          <>
+            <span className="text-sm mr-4">{user.username}</span>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition"
+            >
+              Déconnexion
+            </button>
+          </>
         ) : (
           <>
-            <Link
-              to="/login"
-              className="hover:text-gray-300"
-            >
-              Se connecter
-            </Link>
-            <Link
-              to="/register"
-              className="hover:text-gray-300"
-            >
-              S’inscrire
-            </Link>
+            {location.pathname !== '/login' && (
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `hover:text-gray-300 ${isActive ? 'text-gray-300 underline' : ''}`
+                }
+              >
+                Se connecter
+              </NavLink>
+            )}
+            {location.pathname !== '/register' && (
+              <NavLink
+                to="/register"
+                className={({ isActive }) =>
+                  `hover:text-gray-300 ${isActive ? 'text-gray-300 underline' : ''}`
+                }
+              >
+                S’inscrire
+              </NavLink>
+            )}
           </>
         )}
       </div>
     </nav>
-  )
-}
+)}
