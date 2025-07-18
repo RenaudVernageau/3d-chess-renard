@@ -29,10 +29,13 @@ export default function Lobby() {
   useEffect(() => {
     // Listen for server events
     socket.on('room_created', handleRoomCreated);
-    socket.on('room_joined',   handleRoomJoined);
+    socket.on('room_joined', handleRoomJoined);
 
-        // No cleanup needed, singleton socket
-  }, [socket, handleRoomCreated, handleRoomJoined]);
+    // Cleanup on unmount
+    return () => {
+      socket.off('room_created', handleRoomCreated);
+      socket.off('room_joined', handleRoomJoined);
+    };
   }, [socket, handleRoomCreated, handleRoomJoined]);
 
   const handleCreate = () => {
