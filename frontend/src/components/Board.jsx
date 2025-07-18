@@ -41,7 +41,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
   // ✅ Interpréteur pour appliquer un move WebSocket
   const applyMove = useCallback(({ from, to }) => {
     if (!from || !to) {
-      console.warn("[Board] ❌ Move incomplet ou invalide :", { from, to });
+      console.warn("[Board] ❌ Move incomplet ou invalide :", { from, to });
       return;
     }
     move({ from, to });
@@ -60,8 +60,10 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
   useEffect(() => {
     if (!lastMove) return;
     if (lastMove.san?.includes("+")) moveCheckSound.play();
-    else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e")) captureSound.play();
-    else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q")) castleSound.play();
+    else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e"))
+      captureSound.play();
+    else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q"))
+      castleSound.play();
     else moveSelfSound.play();
   }, [lastMove]);
 
@@ -76,25 +78,29 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
   const handleClick = useCallback(
     (r, c) => {
+      if (turn !== (color === "white" ? "w" : "b")) return;
+
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
-      if (turn !== (color === "white" ? "w" : "b")) return;
-      if (piece && piece.color !== (color === "white" ? "w" : "b")) return;
-
+      // Sélection de ses propres pièces
       if (!selected) {
-        setSelected(sq);
+        if (piece && piece.color === (color === "white" ? "w" : "b")) {
+          setSelected(sq);
+        }
         return;
       }
 
+      // Désélection
       if (sq === selected) {
         setSelected(null);
         return;
       }
 
+      // Coup légal (move ou capture)
       if (legal.includes(sq)) {
         move({ from: selected, to: sq });
-        socket.emit("move_piece", { roomId, move: { from: selected, to: sq } }); // ✅ ici
+        socket.emit("move_piece", { roomId, move: { from: selected, to: sq } });
       }
 
       setSelected(null);
@@ -102,6 +108,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     [board, selected, legal, move, turn, socket, roomId, color]
   );
 
+  // Mettez en évidence le roi en échec
   const isCheck = lastMove?.san?.includes("+");
   const checkSquare = useMemo(() => {
     if (!isCheck) return null;
@@ -128,9 +135,14 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
   return (
     <group>
       <Lights />
+
       <mesh receiveShadow position={[0, -0.16, 0]}>
         <boxGeometry args={[8.4, 0.3, 8.4]} />
-        <meshStandardMaterial color="#111111" metalness={0.2} roughness={0.8} />
+        <meshStandardMaterial
+          color="#111111"
+          metalness={0.2}
+          roughness={0.8}
+        />
       </mesh>
 
       {board.map((rowArr, r) =>
@@ -139,7 +151,8 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
           const dark = (r + c) % 2 === 1;
           let col = dark ? darkColor : lightColor;
           if (sq === selected) col = "#f7e26b";
-          else if (legal.includes(sq)) col = rowArr[c] ? "#ff6b6b" : "#f7e26b";
+          else if (legal.includes(sq))
+            col = rowArr[c] ? "#ff6b6b" : "#f7e26b";
           return (
             <mesh
               key={`${r}-${c}`}
