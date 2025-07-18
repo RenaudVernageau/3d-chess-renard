@@ -11,27 +11,23 @@ export default function Lobby() {
   const [inputRoom, setInputRoom] = useState('');
   const [error, setError] = useState('');
 
-  // Callbacks for socket events
+  // Handlers for socket events
   const handleRoomCreated = useCallback(
-    ({ roomId }) => {
-      navigate(`/play/${roomId}`);
-    },
+    ({ roomId }) => navigate(`/play/${roomId}`),
     [navigate]
   );
 
   const handleRoomJoined = useCallback(
-    ({ roomId }) => {
-      navigate(`/play/${roomId}`);
-    },
+    ({ roomId }) => navigate(`/play/${roomId}`),
     [navigate]
   );
 
   useEffect(() => {
-    // Listen for server events
+    // Subscribe to server events
     socket.on('room_created', handleRoomCreated);
     socket.on('room_joined', handleRoomJoined);
 
-    // Cleanup on unmount
+    // Cleanup listeners on unmount
     return () => {
       socket.off('room_created', handleRoomCreated);
       socket.off('room_joined', handleRoomJoined);
