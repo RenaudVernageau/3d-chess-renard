@@ -2,57 +2,46 @@
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate } from "react-router-dom";
-import { io } from "socket.io-client";
 import { useAuth } from "../hooks/useAuth";
+import useWebSocket from "../hooks/useWebSocket";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
 import Board from "../components/Board.jsx";
 
 export default function Experience() {
   const { user } = useAuth();
+  const { roomId } = useParams();
+  const { socket, connected, emit, on, off } = useWebSocket(user?.token);
   const [players, setPlayers] = useState([]);
-  const [connected, setConnected] = useState(false);
-  const [color, setColor] = useState(null); // "white" or "black"
+  const [color, setColor] = useState(null);
   const [copied, setCopied] = useState(false);
-  const socketRef = useRef(null);
   const boardRef = useRef(null);
 
-  const { roomId } = useParams();
-
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !connected || !socket) return;
 
-    const socket = io(import.meta.env.VITE_WS_URL, {
-      auth: { token: user.token },
-      transports: ["websocket"],
-    });
-    socketRef.current = socket;
+    // Rejoindre la room
+    emit("join_room", { roomId, username: user.username });
 
-    socket.on("connect", () => {
-      socket.emit("join_room", { roomId, username: user.username });
-      setConnected(true);
-    });
-
-    socket.on("room_joined", ({ players: joinedPlayers }) => {
+    const handleRoomJoined = ({ players: joinedPlayers }) => {
       setPlayers(joinedPlayers);
-      // Determine color: creator (first in list) is white
       const isWhite = joinedPlayers[0] === user.username;
       setColor(isWhite ? "white" : "black");
-    });
+    };
 
-    socket.on("move_piece", (move) => {
+    const handleMove = (move) => {
       boardRef.current?.applyMove(move);
-    });
+    };
 
-    socket.on("disconnect", () => {
-      setConnected(false);
-    });
+    on("room_joined", handleRoomJoined);
+    on("move_piece", handleMove);
 
     return () => {
-      socket.emit("leave_room", { roomId });
-      socket.disconnect();
+      emit("leave_room", { roomId });
+      off("room_joined", handleRoomJoined);
+      off("move_piece", handleMove);
     };
-  }, [roomId, user.username, user.token]);
+  }, [roomId, socket, connected, emit, on, off, user]);
 
   if (!roomId) return <Navigate to="/lobby" replace />;
   if (!connected || !color) {
@@ -66,11 +55,8 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <header className="flex items-center justify-between px-6 py-4 text-white">
-        {/* Players list */}
-        <div className="text-lg">Joueurs : {players.join(", ")}</div>
-        {/* Color emoji */}
+        <div className="text-lg">Joueurs : {players.join(", ")}</div>
         <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
-        {/* Clickable roomId (copy) */}
         <div
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => {
@@ -81,7 +67,7 @@ export default function Experience() {
           title="Cliquez pour copier l'ID de la room"
         >
           <span className="text-lg underline">
-            Room : <strong>{roomId}</strong>
+            Room : <strong>{roomId}</strong>
           </span>
           <span className="text-lg">{copied ? "✅" : "📋"}</span>
         </div>
@@ -94,7 +80,7 @@ export default function Experience() {
           <Suspense fallback={null}>
             <Board
               ref={boardRef}
-              socket={socketRef.current}
+              socket={socket}
               roomId={roomId}
               color={color}
             />
