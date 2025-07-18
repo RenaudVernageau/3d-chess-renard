@@ -23,6 +23,7 @@ const gameEndUrl = "/sounds/game-end.mp3";
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const lightColor = "#c4c0bd";
 const darkColor = "#2e2b2a";
+
 const getSquare = (r, c) => FILES[c] + (8 - r);
 const squareToPosition = (square) => {
   const file = square[0];
@@ -70,7 +71,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
-    [selected]
+    [selected, getLegalMoves]
   );
 
   const handleClick = useCallback(
@@ -78,7 +79,6 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
-      // Bloque si ce n’est pas ton tour
       if (turn !== (color === "white" ? "w" : "b")) return;
       if (piece && piece.color !== (color === "white" ? "w" : "b")) return;
 
@@ -94,7 +94,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
       if (legal.includes(sq)) {
         move({ from: selected, to: sq });
-        socket.emit("move_piece", { roomId, from: selected, to: sq });
+        socket.emit("move_piece", { roomId, move: { from: selected, to: sq } }); // ✅ ici
       }
 
       setSelected(null);
@@ -102,7 +102,6 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     [board, selected, legal, move, turn, socket, roomId, color]
   );
 
-  // Met en évidence le roi en échec
   const isCheck = lastMove?.san?.includes("+");
   const checkSquare = useMemo(() => {
     if (!isCheck) return null;

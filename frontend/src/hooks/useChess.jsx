@@ -33,11 +33,15 @@ export default function useChess() {
   const move = useCallback(
     ({ from, to }) => {
       const moveConfig = { from, to };
-      // promotion uniquement pour pion
       if (from[1] === "7" && to[1] === "8") moveConfig.promotion = "q";
       if (from[1] === "2" && to[1] === "1") moveConfig.promotion = "q";
       const m = chess.move(moveConfig);
-      if (m) sync(m);
+      if (m) {
+        sync(m);
+        return m; // 🔁 retourne le coup joué
+      } else {
+        return null; // 🔁 explicite quand le coup est invalide
+      }
     },
     [chess, sync]
   );

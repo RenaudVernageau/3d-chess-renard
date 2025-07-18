@@ -30,6 +30,10 @@ export default function Experience() {
     };
 
     const handleMove = (move) => {
+      if (!move || !move.from || !move.to) {
+        console.warn("[WS] Move reçu invalide", move);
+        return;
+      }
       boardRef.current?.applyMove(move);
     };
 
