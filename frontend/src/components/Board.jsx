@@ -10,8 +10,8 @@ import React, {
 } from "react";
 import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
-import { Pieces } from "./Pieces.jsx";
-import { AnimatedPiece } from "./AnimatedPieces.jsx";
+import Pieces from "./Pieces.jsx";
+import AnimatedPiece from "./AnimatedPieces.jsx";
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
@@ -170,14 +170,14 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         return (
           <Suspense key={i} fallback={null}>
             {lastMove?.to === sq ? (
-              <AnimatedPieces from={lastMove.from} to={lastMove.to}>
+              <AnimatedPiece from={lastMove.from} to={lastMove.to}>
                 <Pieces
                   type={p.type}
                   color={p.color}
                   position={[p.x - 3.5, 0, p.y - 3.5]}
                   rotation={[0, -Math.PI / 2, 0]}
                 />
-              </AnimatedPieces>
+              </AnimatedPiece>
             ) : (
               <Pieces
                 type={p.type}
