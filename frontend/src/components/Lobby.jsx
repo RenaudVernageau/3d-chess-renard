@@ -1,5 +1,5 @@
 // src/components/Lobby.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useWebSocket from '../hooks/useWebSocket';
 import { useAuth } from '../hooks/useAuth';
@@ -11,21 +11,30 @@ export default function Lobby() {
   const [inputRoom, setInputRoom] = useState('');
   const [error, setError] = useState('');
 
+  // Handlers mémorisés pour off()
+  const handleRoomCreated = useCallback(
+    ({ roomId }) => {
+      navigate(`/play/${roomId}`);
+    },
+    [navigate]
+  );
+
+  const handleRoomJoined = useCallback(
+    ({ roomId }) => {
+      navigate(`/play/${roomId}`);
+    },
+    [navigate]
+  );
+
   useEffect(() => {
-    // When the server confirms room creation
-    socket.on('room_created', ({ roomId }) => {
-      navigate(`/play/${roomId}`);
-    });
-    // When the server confirms join
-    socket.on('room_joined', ({ roomId }) => {
-      navigate(`/play/${roomId}`);
-    });
+    socket.on('room_created', handleRoomCreated);
+    socket.on('room_joined', handleRoomJoined);
 
     return () => {
-      socket.off('room_created');
-      socket.off('room_joined');
+      socket.off('room_created', handleRoomCreated);
+      socket.off('room_joined', handleRoomJoined);
     };
-  }, [socket, navigate]);
+  }, [socket, handleRoomCreated, handleRoomJoined]);
 
   const handleCreate = () => {
     setError('');
@@ -45,9 +54,13 @@ export default function Lobby() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-300 dark:from-stone-800 dark:to-stone-900 transition-colors duration-500">
       <div className="bg-white bg-opacity-30 backdrop-blur-md dark:bg-stone-800 dark:bg-opacity-40 p-8 rounded-xl shadow-xl w-full max-w-md">
-        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">Salon de jeu</h1>
+        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">
+          Salon de jeu
+        </h1>
 
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && (
+          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
+        )}
 
         <button
           onClick={handleCreate}
