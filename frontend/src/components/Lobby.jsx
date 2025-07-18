@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function Lobby() {
   const { user } = useAuth();
-  const socket = useWebSocket();
+  const { socket, on, off, emit } = useWebSocket(user?.token);
   const navigate = useNavigate();
   const [inputRoom, setInputRoom] = useState('');
   const [error, setError] = useState('');
@@ -15,21 +15,23 @@ export default function Lobby() {
     if (!socket) return;
 
     const handleRoomEvent = ({ roomId }) => {
-      if (roomId) navigate(`/play/${roomId}`);
+      if (roomId) {
+        navigate(`/play/${roomId}`);
+      }
     };
 
-    socket.on('room_created', handleRoomEvent);
-    socket.on('room_joined', handleRoomEvent);
+    on('room_created', handleRoomEvent);
+    on('room_joined', handleRoomEvent);
 
     return () => {
-      socket.off('room_created', handleRoomEvent);
-      socket.off('room_joined', handleRoomEvent);
+      off('room_created', handleRoomEvent);
+      off('room_joined', handleRoomEvent);
     };
-  }, [socket, navigate]);
+  }, [socket, on, off, navigate]);
 
   const handleCreate = () => {
     setError('');
-    socket?.emit('create_room');
+    emit('create_room');
   };
 
   const handleJoin = () => {
@@ -39,13 +41,15 @@ export default function Lobby() {
       setError('Saisis un ID de room.');
       return;
     }
-    socket?.emit('join_room', { roomId, username: user.username });
+    emit('join_room', { roomId, username: user.username });
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-300 dark:from-stone-800 dark:to-stone-900 transition-colors duration-500">
       <div className="bg-white bg-opacity-30 backdrop-blur-md dark:bg-stone-800 dark:bg-opacity-40 p-8 rounded-xl shadow-xl w-full max-w-md">
-        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">Salon de jeu</h1>
+        <h1 className="text-3xl font-extrabold text-center text-stone-900 dark:text-stone-100 mb-8">
+          Salon de jeu
+        </h1>
 
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
