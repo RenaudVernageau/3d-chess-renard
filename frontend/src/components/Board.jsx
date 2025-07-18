@@ -6,9 +6,11 @@ import React, {
   useImperativeHandle,
   forwardRef,
   useEffect,
+  Suspense,
 } from "react";
 import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
+
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
