@@ -12,24 +12,19 @@ export default function Lobby() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!socket) return;
+
     const handleRoomEvent = ({ roomId }) => {
-      if (roomId) {
-        navigate(`/play/${roomId}`);
-      }
+      if (roomId) navigate(`/play/${roomId}`);
     };
 
-    socket?.on('room_created', handleRoomEvent);
-    socket?.on('room_joined', handleRoomEvent);
+    socket.on('room_created', handleRoomEvent);
+    socket.on('room_joined', handleRoomEvent);
 
-    // Pas de .off() ici car certains sockets custom ne le supportent pas.
-    // Si ton useWebSocket crée un singleton, pas de fuite mémoire.
-
-    // Si tu utilises un socket.io v4+ bien configuré, tu peux faire :
-    // return () => {
-    //   socket?.off('room_created', handleRoomEvent);
-    //   socket?.off('room_joined', handleRoomEvent);
-    // };
-
+    return () => {
+      socket.off('room_created', handleRoomEvent);
+      socket.off('room_joined', handleRoomEvent);
+    };
   }, [socket, navigate]);
 
   const handleCreate = () => {
