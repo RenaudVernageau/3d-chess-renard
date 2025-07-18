@@ -1,8 +1,14 @@
 // src/components/Board.jsx
-import React, { useState, useMemo, useCallback, useImperativeHandle, forwardRef, useEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+  useEffect,
+} from "react";
 import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
-
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
@@ -11,7 +17,7 @@ const captureUrl = "/sounds/capture.mp3";
 const castleUrl = "/sounds/castle.mp3";
 const gameEndUrl = "/sounds/game-end.mp3";
 
-const FILES = ["a","b","c","d","e","f","g","h"];
+const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const lightColor = "#c4c0bd";
 const darkColor = "#2e2b2a";
 const getSquare = (r, c) => FILES[c] + (8 - r);
@@ -25,15 +31,8 @@ const squareToPosition = (square) => {
 };
 
 export default forwardRef(function Board({ socket, roomId, color }, ref) {
-  const {
-    board,
-    positions,
-    lastMove,
-    move,
-    getLegalMoves,
-    turn,
-    gameOver,
-  } = useChess();
+  const { board, positions, lastMove, move, getLegalMoves, turn, gameOver } =
+    useChess();
   const [selected, setSelected] = useState(null);
 
   // Expose applyMove for WS
@@ -59,35 +58,40 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
       moveSelfSound.play();
     }
   }, [lastMove]);
-  useEffect(() => { if (gameOver) gameEndSound.play(); }, [gameOver]);
+  useEffect(() => {
+    if (gameOver) gameEndSound.play();
+  }, [gameOver]);
 
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
     [selected]
   );
 
-  const handleClick = useCallback((r, c) => {
-    const sq = getSquare(r, c);
-    const piece = board[r][c];
+  const handleClick = useCallback(
+    (r, c) => {
+      const sq = getSquare(r, c);
+      const piece = board[r][c];
 
-    // Block if not your turn or wrong color
-    if (turn !== (color === "white" ? "w" : "b")) return;
-    if (piece && piece.color !== (color === "white" ? "w" : "b")) return;
+      // Block if not your turn or wrong color
+      if (turn !== (color === "white" ? "w" : "b")) return;
+      if (piece && piece.color !== (color === "white" ? "w" : "b")) return;
 
-    if (!selected) {
-      setSelected(sq);
-      return;
-    }
-    if (sq === selected) {
+      if (!selected) {
+        setSelected(sq);
+        return;
+      }
+      if (sq === selected) {
+        setSelected(null);
+        return;
+      }
+      if (legal.includes(sq)) {
+        move({ from: selected, to: sq });
+        socket.emit("move_piece", { roomId, from: selected, to: sq });
+      }
       setSelected(null);
-      return;
-    }
-    if (legal.includes(sq)) {
-      move({ from: selected, to: sq });
-      socket.emit("move_piece", { roomId, from: selected, to: sq });
-    }
-    setSelected(null);
-  }, [board, selected, legal, move, turn, socket, roomId, color]);
+    },
+    [board, selected, legal, move, turn, socket, roomId, color]
+  );
 
   // Highlight check
   const isCheck = lastMove?.san?.includes("+");
@@ -110,13 +114,11 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     from: { scale: 0 },
     reset: true,
     loop: isCheck,
-    config: { duration: 800 }
+    config: { duration: 800 },
   });
 
   return (
     <group>
-      <Lights />
-
       {/* Board base */}
       <mesh receiveShadow position={[0, -0.16, 0]}>
         <boxGeometry args={[8.4, 0.3, 8.4]} />
@@ -150,7 +152,12 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
       {checkSquare && (
         <a.mesh position={squareToPosition(checkSquare)} scale={checkScale}>
           <torusGeometry args={[0.7, 0.05, 16, 100]} />
-          <meshStandardMaterial color="red" transparent opacity={0.5} depthWrite={false} />
+          <meshStandardMaterial
+            color="red"
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+          />
         </a.mesh>
       )}
 
@@ -161,10 +168,20 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
           <Suspense key={i} fallback={null}>
             {lastMove?.to === sq ? (
               <AnimatedPieces from={lastMove.from} to={lastMove.to}>
-                <Pieces type={p.type} color={p.color} position={[p.x-3.5,0,p.y-3.5]} rotation={[0,-Math.PI/2,0]} />
+                <Pieces
+                  type={p.type}
+                  color={p.color}
+                  position={[p.x - 3.5, 0, p.y - 3.5]}
+                  rotation={[0, -Math.PI / 2, 0]}
+                />
               </AnimatedPieces>
             ) : (
-              <Pieces type={p.type} color={p.color} position={[p.x-3.5,0,p.y-3.5]} rotation={[0,-Math.PI/2,0]} />
+              <Pieces
+                type={p.type}
+                color={p.color}
+                position={[p.x - 3.5, 0, p.y - 3.5]}
+                rotation={[0, -Math.PI / 2, 0]}
+              />
             )}
           </Suspense>
         );
