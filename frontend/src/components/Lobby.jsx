@@ -32,8 +32,8 @@ export default function Lobby() {
     socket.on('room_joined',   handleRoomJoined);
 
     return () => {
-      socket.off('room_created', handleRoomCreated);
-      socket.off('room_joined',   handleRoomJoined);
+      socket.removeListener('room_created', handleRoomCreated);
+      socket.removeListener('room_joined',   handleRoomJoined);
     };
   }, [socket, handleRoomCreated, handleRoomJoined]);
 
