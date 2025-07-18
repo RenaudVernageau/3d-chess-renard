@@ -2,6 +2,8 @@
 import React, { useState, useMemo, useCallback, useImperativeHandle, forwardRef, useEffect } from "react";
 import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
+import Controls from "./Controls.jsx";
+import Lights from "./Lights.jsx";
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";

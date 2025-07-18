@@ -63,9 +63,6 @@ export default function Experience() {
     );
   }
 
-  // Camera initial positions: white at [4,8,10], black mirrored [-4,8,-10]
-  const initialCamPos = color === "white" ? [4, 8, 10] : [-4, 8, -10];
-
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <header className="flex items-center justify-between px-6 py-4 text-white">
