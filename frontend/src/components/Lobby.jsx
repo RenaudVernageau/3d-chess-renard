@@ -11,7 +11,7 @@ export default function Lobby() {
   const [inputRoom, setInputRoom] = useState('');
   const [error, setError] = useState('');
 
-  // Handlers mémorisés pour off()
+  // Callbacks for socket events
   const handleRoomCreated = useCallback(
     ({ roomId }) => {
       navigate(`/play/${roomId}`);
@@ -27,12 +27,13 @@ export default function Lobby() {
   );
 
   useEffect(() => {
+    // Listen for server events
     socket.on('room_created', handleRoomCreated);
-    socket.on('room_joined', handleRoomJoined);
+    socket.on('room_joined',   handleRoomJoined);
 
     return () => {
       socket.off('room_created', handleRoomCreated);
-      socket.off('room_joined', handleRoomJoined);
+      socket.off('room_joined',   handleRoomJoined);
     };
   }, [socket, handleRoomCreated, handleRoomJoined]);
 
