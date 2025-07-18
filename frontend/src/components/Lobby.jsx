@@ -1,45 +1,45 @@
 // src/components/Lobby.jsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createRoom, joinRoom } from "../api/game";
-import { useAuth } from "../hooks/useAuth";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useWebSocket from '../hooks/useWebSocket';
+import { useAuth } from '../hooks/useAuth';
 
 export default function Lobby() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [roomId, setRoomId] = useState("");
-  const [error, setError] = useState("");
+  const socket = useWebSocket();
+  const navigate = useNavigate();
+  const [inputRoom, setInputRoom] = useState('');
+  const [error, setError] = useState('');
 
-  const handleCreate = async () => {
-    setError("");
-    try {
-      // Crée une room via l'API REST
-      const { roomId: newRoomId } = await createRoom();
-      console.log('Created room via API:', newRoomId);
-      // Redirige directement vers l'expérience 3D
-      navigate(`/play/${newRoomId}`);
-    } catch (err) {
-      console.error("Error creating room:", err);
-      setError("Impossible de créer la partie.");
-    }
+  useEffect(() => {
+    // When the server confirms room creation
+    socket.on('room_created', ({ roomId }) => {
+      navigate(`/play/${roomId}`);
+    });
+    // When the server confirms join
+    socket.on('room_joined', ({ roomId }) => {
+      navigate(`/play/${roomId}`);
+    });
+
+    return () => {
+      socket.off('room_created');
+      socket.off('room_joined');
+    };
+  }, [socket, navigate]);
+
+  const handleCreate = () => {
+    setError('');
+    socket.emit('create_room');
   };
 
-  const handleJoin = async () => {
-    setError("");
-    const trimmed = roomId.trim();
-    if (!trimmed) {
-      setError("Saisis un ID de room.");
+  const handleJoin = () => {
+    setError('');
+    const roomId = inputRoom.trim();
+    if (!roomId) {
+      setError('Saisis un ID de room.');
       return;
     }
-    try {
-      // Rejoindre la room via l'API REST
-      await joinRoom(trimmed, user.username);
-      console.log('Joined room via API:', trimmed);
-      navigate(`/play/${trimmed}`);
-    } catch (err) {
-      console.error("Error joining room:", err);
-      setError(err.error || "Impossible de rejoindre la partie.");
-    }
+    socket.emit('join_room', { roomId, username: user.username });
   };
 
   return (
@@ -49,7 +49,10 @@ export default function Lobby() {
 
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
-        <button onClick={handleCreate} className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition">
+        <button
+          onClick={handleCreate}
+          className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+        >
           Créer une partie
         </button>
 
@@ -57,11 +60,14 @@ export default function Lobby() {
           <input
             type="text"
             placeholder="ID de la room"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
+            value={inputRoom}
+            onChange={(e) => setInputRoom(e.target.value)}
             className="flex-1 px-4 py-2 bg-stone-100 dark:bg-stone-700 text-stone-900 dark:text-stone-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
-          <button onClick={handleJoin} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition">
+          <button
+            onClick={handleJoin}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition"
+          >
             Rejoindre
           </button>
         </div>

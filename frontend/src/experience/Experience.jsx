@@ -17,7 +17,6 @@ export default function Experience() {
   const socketRef = useRef(null);
   const boardRef = useRef(null);
 
-  // Récupérer le roomId depuis le paramètre de route
   const { roomId } = useParams();
 
   useEffect(() => {
@@ -30,12 +29,13 @@ export default function Experience() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      socket.emit("join_room", { roomId });
+      socket.emit("join_room", { roomId, username: user.username });
       setConnected(true);
     });
 
     socket.on("room_joined", ({ players: joinedPlayers }) => {
       setPlayers(joinedPlayers);
+      // Determine color: creator (first in list) is white
       const isWhite = joinedPlayers[0] === user.username;
       setColor(isWhite ? "white" : "black");
     });
@@ -57,25 +57,22 @@ export default function Experience() {
   if (!roomId) return <Navigate to="/lobby" replace />;
   if (!connected || !color) {
     return (
-      <div className="p-4">
+      <div className="p-4 text-center text-white bg-black">
         Connexion à la partie <strong>{roomId}</strong>…
       </div>
     );
   }
 
-  // Camera initial positions
+  // Camera initial positions: white at [4,8,10], black mirrored [-4,8,-10]
   const initialCamPos = color === "white" ? [4, 8, 10] : [-4, 8, -10];
 
   return (
-    <div className="flex flex-col w-full h-screen">
-      {/* Header full width */}
-      <header className="flex items-center justify-between px-6 py-4 bg-black text-white w-full">
+    <div className="flex flex-col w-full h-screen bg-black">
+      <header className="flex items-center justify-between px-6 py-4 text-white">
         {/* Players list */}
         <div className="text-lg">Joueurs : {players.join(", ")}</div>
-
         {/* Color emoji */}
         <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
-
         {/* Clickable roomId (copy) */}
         <div
           className="flex items-center space-x-2 cursor-pointer"
@@ -86,12 +83,11 @@ export default function Experience() {
           }}
           title="Cliquez pour copier l'ID de la room"
         >
-          <span className="text-lg">Room : <strong>{roomId}</strong></span>
-          <span className="text-lg">{copied ? '✅' : '📋'}</span>
+          <span className="text-lg underline">Room : <strong>{roomId}</strong></span>
+          <span className="text-lg">{copied ? "✅" : "📋"}</span>
         </div>
       </header>
 
-      {/* Canvas 3D */}
       <div className="flex-1 relative">
         <Canvas
           flat
