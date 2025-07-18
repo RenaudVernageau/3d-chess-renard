@@ -10,7 +10,8 @@ import React, {
 } from "react";
 import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
-
+import { Pieces } from "./Pieces.jsx";
+import { AnimatedPieces } from "./AnimatedPieces.jsx";
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
