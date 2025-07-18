@@ -14,7 +14,6 @@ import Pieces from "./Pieces.jsx";
 import AnimatedPiece from "./AnimatedPieces.jsx";
 import Lights from "../experience/Lights.jsx";
 
-// Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
 const moveCheckUrl = "/sounds/move-check.mp3";
 const captureUrl = "/sounds/capture.mp3";
@@ -25,7 +24,6 @@ const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const lightColor = "#c4c0bd";
 const darkColor = "#2e2b2a";
 const getSquare = (r, c) => FILES[c] + (8 - r);
-
 const squareToPosition = (square) => {
   const file = square[0];
   const rank = parseInt(square[1], 10);
@@ -39,29 +37,33 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     useChess();
   const [selected, setSelected] = useState(null);
 
-  // Expose applyMove for WS
-  useImperativeHandle(ref, () => ({ applyMove: move }));
+  // ✅ Interpréteur pour appliquer un move WebSocket
+  const applyMove = useCallback(({ from, to }) => {
+    if (!from || !to) {
+      console.warn("[Board] ❌ Move incomplet ou invalide :", { from, to });
+      return;
+    }
+    move({ from, to });
+  }, [move]);
 
-  // Sounds
+  // Expose la méthode à l’extérieur via la ref
+  useImperativeHandle(ref, () => ({ applyMove }));
+
+  // 🔊 Sons
   const moveSelfSound = useMemo(() => new Audio(moveSelfUrl), []);
   const moveCheckSound = useMemo(() => new Audio(moveCheckUrl), []);
   const captureSound = useMemo(() => new Audio(captureUrl), []);
   const castleSound = useMemo(() => new Audio(castleUrl), []);
   const gameEndSound = useMemo(() => new Audio(gameEndUrl), []);
 
-  // Play sounds
   useEffect(() => {
     if (!lastMove) return;
-    if (lastMove.san?.includes("+")) {
-      moveCheckSound.play();
-    } else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e")) {
-      captureSound.play();
-    } else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q")) {
-      castleSound.play();
-    } else {
-      moveSelfSound.play();
-    }
+    if (lastMove.san?.includes("+")) moveCheckSound.play();
+    else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e")) captureSound.play();
+    else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q")) castleSound.play();
+    else moveSelfSound.play();
   }, [lastMove]);
+
   useEffect(() => {
     if (gameOver) gameEndSound.play();
   }, [gameOver]);
@@ -76,7 +78,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
-      // Block if not your turn or wrong color
+      // Bloque si ce n’est pas ton tour
       if (turn !== (color === "white" ? "w" : "b")) return;
       if (piece && piece.color !== (color === "white" ? "w" : "b")) return;
 
@@ -84,20 +86,23 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         setSelected(sq);
         return;
       }
+
       if (sq === selected) {
         setSelected(null);
         return;
       }
+
       if (legal.includes(sq)) {
         move({ from: selected, to: sq });
         socket.emit("move_piece", { roomId, from: selected, to: sq });
       }
+
       setSelected(null);
     },
     [board, selected, legal, move, turn, socket, roomId, color]
   );
 
-  // Highlight check
+  // Met en évidence le roi en échec
   const isCheck = lastMove?.san?.includes("+");
   const checkSquare = useMemo(() => {
     if (!isCheck) return null;
@@ -124,13 +129,11 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
   return (
     <group>
       <Lights />
-      {/* Board base */}
       <mesh receiveShadow position={[0, -0.16, 0]}>
         <boxGeometry args={[8.4, 0.3, 8.4]} />
         <meshStandardMaterial color="#111111" metalness={0.2} roughness={0.8} />
       </mesh>
 
-      {/* Squares */}
       {board.map((rowArr, r) =>
         rowArr.map((_, c) => {
           const sq = getSquare(r, c);
@@ -153,7 +156,6 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         })
       )}
 
-      {/* Check highlight */}
       {checkSquare && (
         <a.mesh position={squareToPosition(checkSquare)} scale={checkScale}>
           <torusGeometry args={[0.7, 0.05, 16, 100]} />
@@ -166,7 +168,6 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         </a.mesh>
       )}
 
-      {/* Pieces */}
       {positions.map((p, i) => {
         const sq = getSquare(p.y, p.x);
         return (
