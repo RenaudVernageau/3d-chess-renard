@@ -83,21 +83,24 @@ export default function Experience() {
           }}
           title="Cliquez pour copier l'ID de la room"
         >
-          <span className="text-lg underline">Room : <strong>{roomId}</strong></span>
+          <span className="text-lg underline">
+            Room : <strong>{roomId}</strong>
+          </span>
           <span className="text-lg">{copied ? "✅" : "📋"}</span>
         </div>
       </header>
 
       <div className="flex-1 relative">
-        <Canvas
-          flat
-          shadows
-          camera={{ fov: 45, near: 0.1, far: 200, position: initialCamPos }}
-        >
+        <Canvas flat shadows camera={{ fov: 45, near: 0.1, far: 200 }}>
           <Controls isWhite={color === "white"} />
           <Lights />
           <Suspense fallback={null}>
-            <Board ref={boardRef} socket={socketRef.current} roomId={roomId} color={color} />
+            <Board
+              ref={boardRef}
+              socket={socketRef.current}
+              roomId={roomId}
+              color={color}
+            />
           </Suspense>
         </Canvas>
       </div>
