@@ -31,10 +31,8 @@ export default function Lobby() {
     socket.on('room_created', handleRoomCreated);
     socket.on('room_joined',   handleRoomJoined);
 
-    return () => {
-      socket.removeListener('room_created', handleRoomCreated);
-      socket.removeListener('room_joined',   handleRoomJoined);
-    };
+        // No cleanup needed, singleton socket
+  }, [socket, handleRoomCreated, handleRoomJoined]);
   }, [socket, handleRoomCreated, handleRoomJoined]);
 
   const handleCreate = () => {
