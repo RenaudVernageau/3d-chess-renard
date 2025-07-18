@@ -12,6 +12,7 @@ import { useSpring, a } from "@react-spring/three";
 import useChess from "../hooks/useChess";
 import Pieces from "./Pieces.jsx";
 import AnimatedPiece from "./AnimatedPieces.jsx";
+import Lights from "../experience/Lights.jsx";
 
 // Assets
 const moveSelfUrl = "/sounds/move-self.mp3";
@@ -122,6 +123,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
   return (
     <group>
+      <Lights />
       {/* Board base */}
       <mesh receiveShadow position={[0, -0.16, 0]}>
         <boxGeometry args={[8.4, 0.3, 8.4]} />
