@@ -1,10 +1,10 @@
 // frontend/src/api/auth.js
 import api from './index';
 
-export function register({ username, password }) {
+export function register({ username, email, password, avatar }) {
   return api('/auth/register', {
     method: 'POST',
-    body: { username, password },
+    body: { username, email, password, avatar },
   });
 }
 
