@@ -2,8 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const gameCtrl = require('../controllers/gameController');
+const authMiddleware = require('../middleware/auth');
 
-router.post('/',         gameCtrl.createRoom);      // POST /api/rooms
-router.post('/:roomId/join', gameCtrl.joinRoom);    // POST /api/rooms/:roomId/join
+// Toutes ces routes exigent un JWT valide
+router.post('/', authMiddleware, gameCtrl.createRoom);
+router.post('/:roomId/join', authMiddleware, gameCtrl.joinRoom);
 
 module.exports = router;

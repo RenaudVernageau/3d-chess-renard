@@ -1,20 +1,55 @@
 // server/controllers/authController.js
-const { users } = require('../models/User');
+const User = require('../models/User');
+const jwt  = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config');
 
-exports.register = (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ error: 'username & password required' });
-  if (users.find(u => u.username === username))
-    return res.status(409).json({ error: 'User already exists' });
-  users.push({ username, password });
-  return res.status(201).json({ message: 'Registered' });
+// POST /api/auth/register
+exports.register = async (req, res) => {
+  const { username, email, password, avatar } = req.body;
+  if (!username || !email || !password) {
+    return res
+      .status(400)
+      .json({ error: 'username, email & password required' });
+  }
+
+  const user = new User({ username, email, password, avatar });
+  try {
+    await user.save();
+  } catch (err) {
+    // 11000 = duplicate key error
+    if (err.code === 11000) {
+      return res
+        .status(409)
+        .json({ error: 'Username or email already in use' });
+    }
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+
+  const token = jwt.sign(
+    { sub: user._id, username: user.username, email: user.email },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  res.status(201).json({ userId: user._id, token });
 };
 
-exports.login = (req, res) => {
+// POST /api/auth/login
+exports.login = async (req, res) => {
   const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  // pour MVP on renvoie un token factice
-  return res.json({ token: 'fake-jwt-token', username });
+  try {
+    const user = await User.findOne({ username });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = jwt.sign(
+      { sub: user._id, username: user.username, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.json({ userId: user._id, token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 };
