@@ -1,74 +1,68 @@
 // src/components/Profile.jsx
-import React, { useEffect, useState, useRef } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { fetchUser, updateUser } from '../api/users';
+import React, { useEffect, useState, useRef } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { fetchUser, updateUser } from "../api/users";
 
 export default function Profile() {
-  const { user } = useAuth();              // { userId, username, token, email, avatar }
+  const { user } = useAuth();        // { userId, username, token, email?, avatar? }
   const { userId } = user;
-  const [form, setForm] = useState({
-    username: '',
-    avatar: '',
-  });
-  const [avatarPreview, setAvatarPreview] = useState('');
-  const [message, setMessage] = useState('');
+  const [form, setForm] = useState({ username: "", avatar: "" });
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [message, setMessage] = useState("");
   const fileInputRef = useRef(null);
 
-  // Charge les données existantes
+  // Charger le profil au montage
   useEffect(() => {
     (async () => {
       try {
         const u = await fetchUser(userId);
         setForm({
           username: u.username,
-          avatar: u.avatar || '',
+          avatar: u.avatar || "",
         });
-        setAvatarPreview(u.avatar || '');
+        setAvatarPreview(u.avatar || "");
       } catch (err) {
-        console.error('Failed to load profile:', err);
-        setMessage('Erreur lors du chargement');
+        console.error("Failed to load profile:", err);
+        setMessage("Erreur lors du chargement");
       }
     })();
   }, [userId]);
 
-  const handleChange = e => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-  };
+  const handleChange = (e) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleAvatarClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleAvatarClick = () => fileInputRef.current?.click();
 
-  const handleAvatarChange = e => {
-    const file = e.target.files[0];
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      setMessage('Image trop volumineuse (max 2 Mo)');
+      setMessage("Image trop volumineuse (max 2 Mo)");
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       setAvatarPreview(reader.result);
-      setForm(f => ({ ...f, avatar: reader.result }));
+      setForm((f) => ({ ...f, avatar: reader.result }));
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage("");
     try {
       await updateUser(userId, {
         username: form.username,
         avatar: form.avatar,
       });
-      // Mettre à jour le localStorage si besoin
-      localStorage.setItem('username', form.username);
-      localStorage.setItem('avatar', form.avatar);
-      setMessage('Profil mis à jour ✅');
+      // si tu utilises avatar/username ailleurs depuis localStorage
+      localStorage.setItem("username", form.username);
+      localStorage.setItem("avatar", form.avatar);
+      setMessage("Profil mis à jour ✅");
     } catch (err) {
       console.error(err);
-      setMessage(err.error || 'Erreur serveur');
+      setMessage(err.error || "Erreur serveur");
     }
   };
 
@@ -96,7 +90,7 @@ export default function Profile() {
             {avatarPreview ? (
               <img
                 src={avatarPreview}
-                alt="Aperçu avatar"
+                alt="Avatar"
                 className="object-cover w-full h-full"
               />
             ) : (
@@ -114,10 +108,8 @@ export default function Profile() {
           />
         </div>
 
-        {/* Message d’erreur ou de succès */}
-        {message && (
-          <p className="text-red-400 text-sm mb-4">{message}</p>
-        )}
+        {/* Message d’erreur ou succès */}
+        {message && <p className="text-red-400 text-sm mb-4">{message}</p>}
 
         {/* Username */}
         <label className="block mb-6 text-left">

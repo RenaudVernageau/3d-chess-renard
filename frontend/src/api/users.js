@@ -1,31 +1,27 @@
 // frontend/src/api/users.js
-import api from './index';
+import api from "./index";
 
-// Récupère tous les users
-export function fetchAllUsers() {
-  return api('/users', {
-    method: 'GET',
+// Récupère tous les utilisateurs
+export const fetchAllUsers = () =>
+  api("/users", {
+    method: "GET",
   });
-}
 
-// Récupère un user par ID
-export function fetchUser(id) {
-  return api(`/users/${id}`, {
-    method: 'GET',
+// Récupère un utilisateur par ID
+export const fetchUser = (id) =>
+  api(`/users/${id}`, {
+    method: "GET",
   });
-}
 
-// Met à jour son propre profil
-export function updateUser(id, data) {
-  return api(`/users/${id}`, {
-    method: 'PUT',
-    body: data,
+// Met à jour son propre profil (ici on n’envoie que username & avatar)
+export const updateUser = (id, { username, avatar }) =>
+  api(`/users/${id}`, {
+    method: "PUT",
+    body: { username, avatar },
   });
-}
 
 // Supprime son propre compte
-export function deleteUser(id) {
-  return api(`/users/${id}`, {
-    method: 'DELETE',
+export const deleteUser = (id) =>
+  api(`/users/${id}`, {
+    method: "DELETE",
   });
-}

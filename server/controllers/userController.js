@@ -34,47 +34,54 @@ exports.getUserById = async (req, res) => {
 
 /**
  * PUT /api/users/:id
- * Met à jour **son propre** profil
+ * Met à jour **son propre** profil (username & avatar uniquement)
  */
 exports.updateUser = async (req, res) => {
-  // Autorise seulement l’utilisateur lui‑même
+  // 1) On n’autorise que soi‑même
   if (req.user.sub !== req.params.id) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  const { username, email, avatar, password } = req.body;
+  const { username, avatar } = req.body;
+  const updates = {};
+
+  // 2) Si le pseudo change, on vérifie qu’il n’est pas déjà pris
+  if (username) {
+    const already = await User.findOne({ username });
+    if (already && already._id.toString() !== req.params.id) {
+      return res.status(409).json({ error: "Username already in use" });
+    }
+    updates.username = username;
+  }
+
+  // 3) Si on fournit un avatar (DataURL ou URL), on le met à jour
+  if (avatar) {
+    updates.avatar = avatar;
+  }
+
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    // Si on change le pseudo, s’assurer qu’il reste unique
-    if (username && username !== user.username) {
-      if (await User.findOne({ username })) {
-        return res.status(409).json({ error: "Username already in use" });
+    // 4) findByIdAndUpdate n’impose la validation que sur les champs passés
+    const userUpdated = await User.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      {
+        new: true,
+        runValidators: true,
+        context: "query",
       }
-      user.username = username;
+    ).select("username email avatar");
+
+    if (!userUpdated) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Même logique pour l’email
-    if (email && email !== user.email) {
-      if (await User.findOne({ email })) {
-        return res.status(409).json({ error: "Email already in use" });
-      }
-      user.email = email;
-    }
-
-    // Si on envoie un nouvel avatar (URL ou path)
-    if (avatar) {
-      user.avatar = avatar;
-    }
-
-    // Si on change de mot de passe
-    if (password) {
-      user.password = password; // sera hashé grâce au pre('save') dans le modèle
-    }
-
-    await user.save();
-    res.json({ message: "Profile updated" });
+    // 5) On renvoie les données à jour pour le front
+    res.json({
+      userId:   userUpdated._id,
+      username: userUpdated.username,
+      email:    userUpdated.email,
+      avatar:   userUpdated.avatar,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
