@@ -12,6 +12,7 @@ import NavBar from "./components/NavBar";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
+import Profile from "./components/Profile";
 import Experience from "./experience/Experience";
 
 // Protected Route: only accessible when logged in
@@ -44,6 +45,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Experience />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
               </PrivateRoute>
             }
           />

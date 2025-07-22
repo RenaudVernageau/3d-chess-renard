@@ -13,7 +13,7 @@ export default function NavBar() {
     navigate("/login");
   };
 
-  // Hide auth section on login/register pages
+  // On cache la partie utilisateur sur /login et /register
   const hideOn = ["/login", "/register"];
   const isHidden = hideOn.includes(location.pathname);
 
@@ -23,10 +23,21 @@ export default function NavBar() {
         Roi des jeux 👑
       </NavLink>
 
-      {/* Show only user name and logout */}
       {!isHidden && user && (
         <div className="flex items-center space-x-4">
-          <span className="text-sm">{user.username}</span>
+          {/* Enveloppe avatar + username dans un lien vers la page profil */}
+          <NavLink
+            to="/profile"
+            className="flex items-center space-x-2 hover:underline"
+          >
+            <img
+              src={user.avatar || "/default-avatar.png"}
+              alt="Avatar"
+              className="w-6 h-6 rounded-full object-cover"
+            />
+            <span className="text-sm">{user.username}</span>
+          </NavLink>
+
           <button
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded transition"
