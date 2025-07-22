@@ -1,13 +1,16 @@
 // frontend/src/api/index.js
 
-// URL de base de ton API REST (pas WebSocket)
+// URL de base de ton API REST (définie en prod via VITE_API_URL, vide en dev)
 const BASE = import.meta.env.VITE_API_URL || "";
 
-export default async function api(path, { method = "GET", body, headers = {} } = {}) {
+export default async function api(
+  path,
+  { method = "GET", body, headers = {} } = {}
+) {
   const token = localStorage.getItem("token");
 
   const res = await fetch(
-    // Construit l’URL comme : `${BASE}/api/users/...` ou `/api/...` en dev
+    // En dev : "/api/...", en prod : "https://...herokuapp.com/api/..."
     `${BASE}/api${path}`,
     {
       method,
@@ -21,7 +24,7 @@ export default async function api(path, { method = "GET", body, headers = {} } =
   );
 
   if (!res.ok) {
-    // Essaie de parser un JSON d’erreur, sinon renvoie un objet vide
+    // Essaie de parser un JSON d’erreur, sinon tombe sur {}
     let err = {};
     try {
       err = await res.json();
