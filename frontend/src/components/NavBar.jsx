@@ -31,7 +31,7 @@ export default function NavBar() {
             className="flex items-center space-x-2 hover:underline"
           >
             <img
-              src={user.avatar || "/default-avatar.png"}
+              src={user.avatar || "/default-avatar.jpg"}
               alt="Avatar"
               className="w-6 h-6 rounded-full object-cover"
             />
