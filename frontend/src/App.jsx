@@ -1,21 +1,17 @@
 // src/App.jsx
 import React from "react";
-import {
-  HashRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import NavBar from "./components/NavBar";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
-import Profile from "./components/Profile";
+import { OwnProfile, UserProfile } from "./components/Profile";
+import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
 
-// Protected Route: only accessible when logged in
+// PrivateRoute ne rend le composant que si l’utilisateur est authentifié
 function PrivateRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" replace />;
@@ -52,14 +48,29 @@ export default function App() {
             path="/profile"
             element={
               <PrivateRoute>
-                <Profile />
+                <OwnProfile />
               </PrivateRoute>
             }
           />
-          {/* Redirect /play without roomId back to lobby */}
-          <Route path="/play" element={<Navigate to="/lobby" replace />} />
+          <Route
+            path="/users"
+            element={
+              <PrivateRoute>
+                <UsersList />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/users/:id"
+            element={
+              <PrivateRoute>
+                <UserProfile />
+              </PrivateRoute>
+            }
+          />
 
-          {/* Root and catch-all redirects */}
+          {/* Redirects */}
+          <Route path="/play" element={<Navigate to="/lobby" replace />} />
           <Route path="/" element={<Navigate to="/lobby" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

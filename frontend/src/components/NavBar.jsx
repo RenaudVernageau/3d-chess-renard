@@ -1,5 +1,5 @@
 // src/components/NavBar.jsx
-import React from "react";
+import { FaUsers } from "react-icons/fa";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
@@ -25,17 +25,15 @@ export default function NavBar() {
 
       {!isHidden && user && (
         <div className="flex items-center space-x-4">
-          {/* Enveloppe avatar + username dans un lien vers la page profil */}
           <NavLink
-            to="/profile"
-            className="flex items-center space-x-2 hover:underline"
+            to="/users"
+            className="flex items-center ml-4 text-sm hover:underline"
           >
-            <img
-              src={user.avatar || "/default-avatar.jpg"}
-              alt="Avatar"
-              className="w-6 h-6 rounded-full object-cover"
-            />
-            <span className="text-sm">{user.username}</span>
+            <FaUsers className="mr-1" />
+            Liste des utilisateurs
+          </NavLink>
+          <NavLink to="/profile" className="text-sm hover:underline">
+            {user.username}
           </NavLink>
 
           <button
