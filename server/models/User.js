@@ -2,7 +2,9 @@
 const mongoose = require('mongoose');
 const bcrypt   = require('bcrypt');
 
-const userSchema = new mongoose.Schema({
+const { Schema, model } = mongoose;
+
+const userSchema = new Schema({
   username: {
     type: String,
     unique: true,
@@ -19,33 +21,40 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     match: [/^\S+@\S+\.\S+$/, 'Email invalide'],
   },
-  password: {
+  passwordHash: {
     type: String,
     required: true,
-    minlength: 8,
   },
-  avatar: {
-    type: String,       // on stocke la Data URL ou l’URL de l’avatar
+  avatarUrl: {
+    type: String,
     default: '',
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  friends: [{
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  friendRequests: [{
+    from: { type: Schema.Types.ObjectId, ref: 'User' },
+    status: { type: String, enum: ['pending','accepted','rejected'], default: 'pending' },
+    _id: false
+  }]
+}, { timestamps: true });
 
+// Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('passwordHash')) return next();
   try {
-    this.password = await bcrypt.hash(this.password, 10);
+    const salt = await bcrypt.genSalt(10);
+    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
     next();
   } catch (err) {
     next(err);
   }
 });
 
+// Compare given password with stored hash
 userSchema.methods.comparePassword = function(candidate) {
-  return bcrypt.compare(candidate, this.password);
+  return bcrypt.compare(candidate, this.passwordHash);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = model('User', userSchema);
