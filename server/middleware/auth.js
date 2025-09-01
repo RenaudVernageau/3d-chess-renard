@@ -8,7 +8,7 @@ module.exports = (req, res, next) => {
     return res.status(401).json({ message: 'Missing or invalid token' });
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader?.split(" ")[1] || req.cookies?.token;
   try {
     const payload = jwt.verify(token, config.JWT_SECRET);
     // Attacher uniquement les informations nécessaires

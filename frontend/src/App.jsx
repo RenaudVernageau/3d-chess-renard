@@ -1,6 +1,11 @@
 // src/App.jsx
 import React from "react";
-import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  HashRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import NavBar from "./components/NavBar";
@@ -10,6 +15,7 @@ import Lobby from "./components/Lobby";
 import { OwnProfile, UserProfile } from "./components/Profile";
 import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
+import MessagingPage from "./components/MessagingPage";
 
 // PrivateRoute ne rend le composant que si l’utilisateur est authentifié
 function PrivateRoute({ children }) {
@@ -68,7 +74,14 @@ export default function App() {
               </PrivateRoute>
             }
           />
-
+          <Route
+            path="/messages"
+            element={
+              <PrivateRoute>
+                <MessagingPage />
+              </PrivateRoute>
+            }
+          />
           {/* Redirects */}
           <Route path="/play" element={<Navigate to="/lobby" replace />} />
           <Route path="/" element={<Navigate to="/lobby" replace />} />

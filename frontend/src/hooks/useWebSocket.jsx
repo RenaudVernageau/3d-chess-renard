@@ -2,10 +2,6 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { io } from "socket.io-client";
 
-/**
- * Hook personnalisé pour utiliser Socket.IO avec authentification JWT.
- * Fournit un accès aux méthodes `emit`, `on`, `off`, `connected`, et `socket`.
- */
 export default function useWebSocket(token) {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
@@ -52,22 +48,33 @@ export default function useWebSocket(token) {
     socketRef.current.on(event, handler);
   }, []);
 
+  const once = useCallback((event, handler) => {
+    if (!socketRef.current) return;
+    console.log(`[WS] 🟡 Listening once to event: "${event}"`);
+    socketRef.current.once(event, handler);
+  }, []);
+
   const off = useCallback((event, handler) => {
     if (!socketRef.current) return;
     console.log(`[WS] 🔴 Stop listening to event: "${event}"`);
     socketRef.current.off(event, handler);
   }, []);
 
-  const emit = useCallback((event, payload) => {
+  const emit = useCallback((event, payload, ack) => {
     if (!socketRef.current) return;
     console.log(`[WS] 📤 Emitting "${event}"`, payload);
-    socketRef.current.emit(event, payload);
+    if (ack) {
+      socketRef.current.emit(event, payload, ack);
+    } else {
+      socketRef.current.emit(event, payload);
+    }
   }, []);
 
   return {
     socket: socketRef.current,
     connected,
     on,
+    once,
     off,
     emit,
   };

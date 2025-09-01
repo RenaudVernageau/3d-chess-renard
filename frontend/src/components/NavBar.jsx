@@ -1,5 +1,6 @@
 // src/components/NavBar.jsx
 import { FaUsers } from "react-icons/fa";
+import { FiMessageCircle } from "react-icons/fi";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
@@ -25,6 +26,13 @@ export default function NavBar() {
 
       {!isHidden && user && (
         <div className="flex items-center space-x-4">
+          <NavLink
+            to="/messages"
+            className="flex items-center ml-4 text-sm hover:underline"
+          >
+            <FiMessageCircle className="mr-1" />
+            Messages
+          </NavLink>
           <NavLink
             to="/users"
             className="flex items-center ml-4 text-sm hover:underline"

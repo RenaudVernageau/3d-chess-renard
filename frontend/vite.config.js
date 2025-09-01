@@ -11,8 +11,8 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:4000",
         changeOrigin: true,
-        secure: false,
-        // rewrite: path => path.replace(/^\/api/, "") 
+        // secure: false,
+        // rewrite: (path) => path.replace(/^\/api/, '/api')
         // si tes routes back n'ont pas /api en préfixe, tu peux décommenter et adapter
       },
     },

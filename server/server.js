@@ -16,6 +16,7 @@ const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const roomsRoutes = require("./routes/rooms");
 const notificationsRoutes = require("./routes/notifications");
+const messageRoutes = require('./routes/messages');
 // Initialisation WebSocket (rooms + notifications)
 const initWs = require("./services/websocket");
 
@@ -49,6 +50,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/messages", messageRoutes);
 
 // --- HTTP + WebSocket Server ---
 const server = http.createServer(app);

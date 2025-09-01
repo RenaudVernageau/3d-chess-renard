@@ -1,60 +1,73 @@
 // server/models/User.js
-const mongoose = require('mongoose');
-const bcrypt   = require('bcrypt');
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 
-const { Schema, model } = mongoose;
+// Schéma utilisateur
+const userSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      unique: true,
+      required: true,
+      trim: true,
+      minlength: 3,
+      maxlength: 30,
+    },
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, "Email invalide"],
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: 8,
+      select: false, // n'est pas renvoyé par défaut
+    },
+    avatarUrl: {
+      type: String,
+      default: "",
+    },
+    friends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    friendRequests: [
+      {
+        from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        status: {
+          type: String,
+          enum: ["pending", "accepted", "rejected"],
+          default: "pending",
+        },
+      },
+    ],
+  },
+  {
+    timestamps: true, // ajoute createdAt et updatedAt automatiques
+  }
+);
 
-const userSchema = new Schema({
-  username: {
-    type: String,
-    unique: true,
-    required: true,
-    trim: true,
-    minlength: 3,
-    maxlength: 30,
-  },
-  email: {
-    type: String,
-    unique: true,
-    required: true,
-    trim: true,
-    lowercase: true,
-    match: [/^\S+@\S+\.\S+$/, 'Email invalide'],
-  },
-  passwordHash: {
-    type: String,
-    required: true,
-  },
-  avatarUrl: {
-    type: String,
-    default: '',
-  },
-  friends: [{
-    type: Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  friendRequests: [{
-    from: { type: Schema.Types.ObjectId, ref: 'User' },
-    status: { type: String, enum: ['pending','accepted','rejected'], default: 'pending' },
-    _id: false
-  }]
-}, { timestamps: true });
-
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('passwordHash')) return next();
+// Hook: avant chaque save, hasher le mot de passe si modifié
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   try {
     const salt = await bcrypt.genSalt(10);
-    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+    this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (err) {
     next(err);
   }
 });
 
-// Compare given password with stored hash
-userSchema.methods.comparePassword = function(candidate) {
-  return bcrypt.compare(candidate, this.passwordHash);
+// Méthode d'instance pour comparer un mot de passe clair
+userSchema.methods.comparePassword = function (candidate) {
+  return bcrypt.compare(candidate, this.password);
 };
 
-module.exports = model('User', userSchema);
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);
