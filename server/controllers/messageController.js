@@ -1,95 +1,118 @@
-// server/controllers/messageController.js
-const mongoose = require('mongoose');
-const Message  = require('../models/Message');
-
-// Helper
-const { Types: { ObjectId } } = mongoose;
+//server/controllers/messageController.js
+const mongoose = require("mongoose");
+const Message = require("../models/Message");
+const User = require("../models/User");
 
 /**
  * GET /api/messages/conversations
+ * Renvoie la liste des conversations (dernier message par partenaire)
  */
-exports.getConversations = async (req, res) => {
+exports.listConversations = async (req, res) => {
   try {
-    const me = new ObjectId(req.user.sub);
+    const me = new mongoose.Types.ObjectId(req.user.id);
 
+    // On regroupe par "autre utilisateur"
     const convs = await Message.aggregate([
-      { $match: { $or: [ { from: me }, { to: me } ] } },
+      { $match: { $or: [{ from: me }, { to: me }] } },
       { $sort: { createdAt: -1 } },
-      { $group: {
-          _id: { $cond: [ { $eq: ['$from', me] }, '$to', '$from' ] },
-          lastMessage: { $first: '$$ROOT' }
-      }},
-      { $lookup: {
-          from: 'users', localField: '_id', foreignField: '_id', as: 'partner'
-      }},
-      { $unwind: '$partner' },
-      { $project: {
-          _id: 0,
-          partner: {
-            _id:       '$partner._id',
-            username:  '$partner.username',
-            avatarUrl: '$partner.avatarUrl'
+      {
+        $group: {
+          _id: {
+            $cond: [{ $eq: ["$from", me] }, "$to", "$from"],
           },
-          lastMessage: {
-            _id:       '$lastMessage._id',
-            text:      '$lastMessage.text',
-            from:      '$lastMessage.from',
-            to:        '$lastMessage.to',
-            createdAt: '$lastMessage.createdAt'
-          }
-      }}
+          lastMessage: { $first: "$$ROOT" },
+        },
+      },
+      { $limit: 50 }, // sécurité simple
     ]);
-    res.json(convs);
+
+    // Récupérer les infos partenaires
+    const partnerIds = convs.map((c) => c._id);
+    const partners = await User.find({ _id: { $in: partnerIds } })
+      .select("username avatarUrl email")
+      .lean();
+
+    const partnerMap = new Map(partners.map((p) => [String(p._id), p]));
+
+    const result = convs.map((c) => ({
+      partner: partnerMap.get(String(c._id)) || {
+        _id: c._id,
+        username: "Joueur",
+        avatarUrl: "",
+      },
+      lastMessage: {
+        _id: String(c.lastMessage._id),
+        from: String(c.lastMessage.from),
+        to: String(c.lastMessage.to),
+        text: c.lastMessage.text,
+        createdAt: c.lastMessage.createdAt,
+      },
+    }));
+
+    res.json(result);
   } catch (err) {
-    console.error('messageController.getConversations error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    console.error("listConversations error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
  * GET /api/messages/:otherId
+ * Renvoie l'historique complet avec otherId (tri croissant par date)
  */
-exports.getMessagesWith = async (req, res) => {
+exports.listWithUser = async (req, res) => {
   try {
-    const me    = new ObjectId(req.user.sub);
-    const other = new ObjectId(req.params.otherId);
+    const me = req.user.id;
+    const otherId = req.params.otherId;
 
     const msgs = await Message.find({
-      $or: [ { from: me, to: other }, { from: other, to: me } ]
+      $or: [
+        { from: me, to: otherId },
+        { from: otherId, to: me },
+      ],
     })
-    .sort({ createdAt: 1 })
-    .populate('from', 'username avatarUrl')
-    .populate('to',   'username avatarUrl');
+      .sort({ createdAt: 1 })
+      .lean();
 
-    res.json(msgs);
+    // Shape simple attendu par ton UI (string ids ok)
+    const result = msgs.map((m) => ({
+      _id: String(m._id),
+      from: String(m.from),
+      to: String(m.to),
+      text: m.text,
+      createdAt: m.createdAt,
+    }));
+
+    res.json(result);
   } catch (err) {
-    console.error('messageController.getMessagesWith error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    console.error("listWithUser error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
  * POST /api/messages
+ * Crée un message (fallback HTTP, utile si WS indisponible)
+ * body: { to, text }
  */
-exports.sendMessage = async (req, res) => {
+exports.create = async (req, res) => {
   try {
-    console.log('sendMessage payload:', req.body, 'user:', req.user);
-    const from = new ObjectId(req.user.sub);
-    const to   = new ObjectId(req.body.to);
-    const text = String(req.body.text || '').trim();
+    const me = req.user.id;
+    const to = String(req.body?.to || "").trim();
+    const text = String(req.body?.text || "").trim();
+    if (!to || !text)
+      return res.status(400).json({ message: "to and text are required" });
 
-    if (!text) {
-      return res.status(400).json({ error: 'Missing text' });
-    }
-
-    const msg = new Message({ from, to, text });
-    await msg.save();
-    await msg.populate('from', 'username avatarUrl');
-    await msg.populate('to',   'username avatarUrl');
-
-    res.status(201).json(msg);
+    const doc = await Message.create({ from: me, to, text });
+    res.status(201).json({
+      _id: String(doc._id),
+      from: String(doc.from),
+      to: String(doc.to),
+      text: doc.text,
+      createdAt: doc.createdAt,
+    });
   } catch (err) {
-    console.error('messageController.sendMessage error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    console.error("create message error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };

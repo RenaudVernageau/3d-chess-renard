@@ -1,29 +1,27 @@
-// server/models/Message.js
 const mongoose = require("mongoose");
 
-const messageSchema = new mongoose.Schema({
-  from: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
+const messageSchema = new mongoose.Schema(
+  {
+    from: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    to: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    text: { type: String, required: true, trim: true },
   },
-  to: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
-  text: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+  { timestamps: true }
+);
 
+// utile pour l'historique et la liste des convos
+messageSchema.index({ from: 1, to: 1, createdAt: -1 });
+messageSchema.index({ to: 1, from: 1, createdAt: -1 });
 
-messageSchema.index({ from: 1, to: 1, createdAt: 1 });
-
-module.exports = mongoose.models.Message || mongoose.model('Message', messageSchema);
+module.exports =
+  mongoose.models.Message || mongoose.model("Message", messageSchema);

@@ -1,13 +1,13 @@
-// server/routes/messages.js
-const express = require("express");
-const router = express.Router();
+//server/routes/messages.js
+const router = require("express").Router();
 const auth = require("../middleware/auth");
-const msgCtrl = require("../controllers/messageController");
+const ctrl = require("../controllers/messageController");
 
-router.use(auth);
+// Historique
+router.get("/conversations", auth, ctrl.listConversations);
+router.get("/:otherId",      auth, ctrl.listWithUser);
 
-router.get("/conversations", msgCtrl.getConversations);
-router.get("/:otherId", msgCtrl.getMessagesWith);
-router.post("/", msgCtrl.sendMessage);
+// Fallback HTTP d'envoi (si pas de WS)
+router.post("/",             auth, ctrl.create);
 
 module.exports = router;

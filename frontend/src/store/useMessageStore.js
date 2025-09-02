@@ -95,33 +95,52 @@ export const useMessageStore = create((set, get) => ({
   // Réception temps réel d’un nouveau message
   handleIncomingSocketMessage: (msg, myUserId) => {
     if (!msg || !msg.from) return;
-    const otherId = msg.from === myUserId ? msg.to : msg.from;
+    const otherId =
+      String(msg.from) === String(myUserId) ? String(msg.to) : String(msg.from);
 
     set((state) => {
       const list = state.messages[otherId] || [];
       const already = list.some((m) => m._id === msg._id);
       const nextList = already ? list : [...list, msg];
 
-      let nextConvs = [...(state.conversations || [])];
-      const idx = nextConvs.findIndex((c) => c.partner?._id === otherId);
+      const convs = state.conversations || [];
+      const idx = convs.findIndex((c) => String(c.partner?._id) === otherId);
 
+      const partnerName =
+        String(msg.from) === String(myUserId)
+          ? msg.toName || "Joueur"
+          : msg.fromName || "Joueur";
+      const partnerAvatar =
+        String(msg.from) === String(myUserId)
+          ? msg.toAvatar || ""
+          : msg.fromAvatar || "";
+
+      let nextConvs;
       if (idx >= 0) {
-        // conversation existante → maj lastMessage
-        nextConvs[idx] = {
-          ...nextConvs[idx],
-          lastMessage: msg,
-        };
-      } else {
-        // conversation inconnue → créer une nouvelle entrée minimale
-        nextConvs.unshift({
+        const copy = convs.slice();
+        copy[idx] = {
+          ...copy[idx],
           partner: {
+            ...(copy[idx].partner || {}),
             _id: otherId,
-            username:
-              msg.from === myUserId ? msg.toName : msg.fromName || "Inconnu",
-            avatarUrl: "/default-avatar.jpg",
+            username: partnerName,
+            avatarUrl: partnerAvatar || copy[idx].partner?.avatarUrl || "",
           },
           lastMessage: msg,
-        });
+        };
+        nextConvs = copy;
+      } else {
+        nextConvs = [
+          {
+            partner: {
+              _id: otherId,
+              username: partnerName,
+              avatarUrl: partnerAvatar,
+            },
+            lastMessage: msg,
+          },
+          ...convs,
+        ];
       }
 
       return {

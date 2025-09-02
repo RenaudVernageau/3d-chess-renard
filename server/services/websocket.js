@@ -4,6 +4,7 @@ const { JWT_SECRET } = require("../config");
 const { rooms } = require("../models/Game");
 const { v4: uuid } = require("uuid");
 const Message = require("../models/Message");
+const User = require("../models/User");
 
 function initWebsocket(server) {
   const io = require("socket.io")(server, {
@@ -17,7 +18,6 @@ function initWebsocket(server) {
     if (!token) return next(new Error("Missing or invalid token"));
     try {
       const payload = jwt.verify(token, JWT_SECRET);
-      // ⚠️ ton JWT met l'id dans "sub"
       socket.user = { id: payload.sub, username: payload.username };
       return next();
     } catch (err) {
@@ -75,27 +75,39 @@ function initWebsocket(server) {
         const text = String(payload?.text || "").trim();
         if (!to || !text) throw new Error("Invalid payload");
 
-        // debug: le destinataire est-il bien dans sa room perso ?
-        const hasDest = io.sockets.adapter.rooms.get(`user:${to}`);
-        console.log(`[WS] user:${to} present?`, !!hasDest, "size=", hasDest?.size || 0);
-
+        // 1) Sauvegarde en DB
         const doc = await Message.create({ from: userId, to, text });
+
+        // 2) Infos utilisateurs (pour enrichir les convos)
+        const [fromUser, toUser] = await Promise.all([
+          User.findById(userId).select("username avatarUrl email").lean(),
+          User.findById(to).select("username avatarUrl email").lean(),
+        ]);
+        const fallbackName = (u, id) =>
+          (u?.username && u.username.trim()) ||
+          (u?.email ? u.email.split("@")[0] : `Joueur_${String(id).slice(-4)}`);
+
         const msg = {
           _id: String(doc._id),
-          from: userId,
-          to,
+          from: String(userId),
+          to: String(to),
           text,
           createdAt: doc.createdAt,
+          fromName: fallbackName(fromUser, userId),
+          toName: fallbackName(toUser, to),
+          fromAvatar: fromUser?.avatarUrl || "",
+          toAvatar: toUser?.avatarUrl || "",
         };
 
-        console.log("[WS] message:new ->", `user:${to}`, "et", userRoom, msg);
-        io.to(`user:${to}`).emit("message:new", msg); // destinataire
-        io.to(userRoom).emit("message:new", msg);     // émetteur (toutes ses tabs)
+        // 3) Diffusion temps réel
+        io.to(`user:${to}`).emit("message:new", msg);   // destinataire
+        io.to(userRoom).emit("message:new", msg);       // émetteur (toutes ses tabs)
 
-        ack && ack({ ok: true, msg });
+        // 4) Ack pour le client émetteur
+        ack?.({ ok: true, msg });
       } catch (err) {
         console.error("[WS] message:send error:", err);
-        ack && ack({ ok: false, error: err.message });
+        ack?.({ ok: false, error: err.message });
       }
     });
 
