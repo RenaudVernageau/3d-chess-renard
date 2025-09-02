@@ -12,8 +12,9 @@ export default function Experience() {
   const { user } = useAuth();
   const { roomId } = useParams();
   const { socket, connected, emit, on, off } = useWebSocket(user?.token);
+
   const [players, setPlayers] = useState([]);
-  const [color, setColor] = useState(null);
+  const [color, setColor] = useState(null); // "white" ou "black"
   const [copied, setCopied] = useState(false);
   const boardRef = useRef(null);
 
@@ -25,8 +26,13 @@ export default function Experience() {
 
     const handleRoomJoined = ({ players: joinedPlayers }) => {
       setPlayers(joinedPlayers);
-      const isWhite = joinedPlayers[0] === user.username;
-      setColor(isWhite ? "white" : "black");
+
+      // Attribue la couleur uniquement si pas encore défini
+      setColor((prev) => {
+        if (prev) return prev;
+        const isWhite = joinedPlayers[0] === user.username;
+        return isWhite ? "white" : "black";
+      });
     };
 
     const handleMove = (move) => {
@@ -60,7 +66,9 @@ export default function Experience() {
     <div className="flex flex-col w-full h-screen bg-black">
       <header className="flex items-center justify-between px-6 py-4 text-white">
         <div className="text-lg">Joueurs : {players.join(", ")}</div>
-        <div className="text-2xl">{color === "white" ? "⚪️" : "⚫️"}</div>
+        <div className="text-2xl">
+          {color === "black" ? <span>⚫</span> : <span>⚪</span>}
+        </div>
         <div
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => {
