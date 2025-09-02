@@ -11,43 +11,43 @@ exports.listConversations = async (req, res) => {
   try {
     const me = new mongoose.Types.ObjectId(req.user.id);
 
-    // On regroupe par "autre utilisateur"
     const convs = await Message.aggregate([
-      { $match: { $or: [{ from: me }, { to: me }] } },
+      { $match: { $or: [ { from: me }, { to: me } ] } },
       { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: {
-            $cond: [{ $eq: ["$from", me] }, "$to", "$from"],
+            $cond: [ { $eq: ["$from", me] }, "$to", "$from" ]
           },
-          lastMessage: { $first: "$$ROOT" },
-        },
+          lastMessage: { $first: "$$ROOT" }
+        }
       },
-      { $limit: 50 }, // sécurité simple
+      { $limit: 50 }
     ]);
 
-    // Récupérer les infos partenaires
-    const partnerIds = convs.map((c) => c._id);
+    const partnerIds = convs.map(c => c._id);
     const partners = await User.find({ _id: { $in: partnerIds } })
       .select("username avatarUrl email")
       .lean();
+    const map = new Map(partners.map(p => [String(p._id), p]));
 
-    const partnerMap = new Map(partners.map((p) => [String(p._id), p]));
-
-    const result = convs.map((c) => ({
-      partner: partnerMap.get(String(c._id)) || {
-        _id: c._id,
-        username: "Joueur",
-        avatarUrl: "",
-      },
-      lastMessage: {
-        _id: String(c.lastMessage._id),
-        from: String(c.lastMessage.from),
-        to: String(c.lastMessage.to),
-        text: c.lastMessage.text,
-        createdAt: c.lastMessage.createdAt,
-      },
-    }));
+    const result = convs.map(c => {
+      const p = map.get(String(c._id));
+      return {
+        partner: {
+          _id: String(c._id),
+          username: p?.username || (p?.email ? p.email.split("@")[0] : "Joueur"),
+          avatarUrl: p?.avatarUrl || "",
+        },
+        lastMessage: {
+          _id: String(c.lastMessage._id),
+          from: String(c.lastMessage.from),
+          to: String(c.lastMessage.to),
+          text: c.lastMessage.text,
+          createdAt: c.lastMessage.createdAt,
+        },
+      };
+    });
 
     res.json(result);
   } catch (err) {
