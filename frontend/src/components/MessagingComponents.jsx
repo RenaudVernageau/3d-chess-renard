@@ -1,8 +1,18 @@
+// src/components/MessagingComponents.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMessageStore } from "../store/useMessageStore";
 import { useNavigate } from "react-router-dom";
 import useWebSocket from "../hooks/useWebSocket";
+
+function parseJwt(token) {
+  try {
+    const base64 = token.split(".")[1];
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Liste des conversations (dernier message par partenaire)
@@ -65,10 +75,15 @@ export function ConversationsList({ onSelect, selectedId }) {
   );
 }
 
+/**
+ * Fenêtre de chat pour une conversation
+ */
 export function ChatWindow({ otherId }) {
-  const { user } = useAuth();
-  const myId = String(user?.id || user?._id || ""); // ✅ robustesse
-  const { socket, on, off } = useWebSocket(user?.token);
+  const { user, token: authTokenFromHook } = useAuth() || {};
+  const authToken = authTokenFromHook || localStorage.getItem("token") || "";
+  const myId = String(user?.id || user?._id || parseJwt(authToken)?.sub || "");
+
+  const { socket, on, off } = useWebSocket(authToken);
 
   const {
     messages,
@@ -96,7 +111,7 @@ export function ChatWindow({ otherId }) {
 
   // WS: réception message
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !myId) return;
     const handler = (msg) => {
       handleIncomingSocketMessage(msg, myId);
     };
@@ -108,7 +123,7 @@ export function ChatWindow({ otherId }) {
     e?.preventDefault();
     const clean = text.trim();
     if (!clean) return;
-    sendMessageRealtime(otherId, clean, socket, (err) => {
+    sendMessageRealtime(String(otherId), clean, socket, (err) => {
       if (err) console.error("ack error", err);
     });
     setText("");
@@ -118,12 +133,30 @@ export function ChatWindow({ otherId }) {
 
   // 🌟 Nom/Avatar dans l’en-tête (si dispo via conversations)
   const partner = conversations.find(
-    (c) => c.partner?._id === otherId
+    (c) => String(c.partner?._id) === String(otherId)
   )?.partner;
   const partnerName =
     partner?.username ||
     (partner?.email ? partner.email.split("@")[0] : "Joueur");
   const partnerAvatar = partner?.avatarUrl || "/default-avatar.jpg";
+
+  // ⛔ Si pas encore d'ID utilisateur, affiche un écran neutre
+  if (!myId) {
+    return (
+      <div className="flex flex-col flex-1 bg-stone-900">
+        <header className="bg-stone-800 p-4 flex items-center gap-3">
+          <button
+            onClick={() => navigate("/messages")}
+            className="text-stone-400 hover:text-white"
+          >
+            ← Retour
+          </button>
+          <h3 className="text-white font-semibold">Discussion</h3>
+        </header>
+        <div className="p-4 text-stone-400">Chargement…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 bg-stone-900">
@@ -147,15 +180,10 @@ export function ChatWindow({ otherId }) {
       <main className="flex-1 overflow-y-auto p-4 space-y-3">
         {msgs.map((msg) => {
           const fromId = String(msg?.from?._id || msg?.from || "");
-          const isMine = fromId === myId; // ✅ compare en string
+          const isMine = fromId === myId;
           const stamp = msg?.createdAt ? new Date(msg.createdAt) : new Date();
 
-          // nom optionnel au-dessus de la bulle (si tu veux)
-          const displayName = isMine
-            ? msg.fromName || "Moi"
-            : msg.fromName && fromId !== myId
-            ? msg.fromName
-            : partnerName;
+          const displayName = isMine ? "Moi" : msg.fromName || partnerName;
 
           return (
             <div
@@ -163,7 +191,6 @@ export function ChatWindow({ otherId }) {
               className={`flex ${isMine ? "justify-end" : "justify-start"}`}
             >
               <div className="max-w-[70%]">
-                {/* petit nom au-dessus si besoin */}
                 <div className="text-xs text-stone-400 mb-1 px-1">
                   {displayName}
                 </div>
