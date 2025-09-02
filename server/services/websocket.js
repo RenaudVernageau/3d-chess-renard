@@ -47,10 +47,10 @@ function initWebsocket(server) {
       if (!rooms[roomId]) {
         rooms[roomId] = {
           id: roomId,
-          players: [], // [{ id, username, color }]
-          assignments: {}, // { [userId]: "white"|"black"|"spectator" }
-          turn: "white", // tour courant (si tu veux le faire respecter)
-          state: null, // ton état de partie si besoin
+          players: [],            // [{ id, username, color }]
+          assignments: {},        // { [userId]: "white"|"black"|"spectator" }
+          turn: "white",
+          state: null,
           createdAt: Date.now(),
         };
       }
@@ -92,14 +92,12 @@ function initWebsocket(server) {
 
       // Sinon on lui en attribue une disponible
       if (!color) {
-        color = pickNextColor(room.assignments); // "white" | "black" | "spectator"
+        color = pickNextColor(room.assignments);
         room.assignments[userId] = color;
-        // éviter doublon dans players
         if (!room.players.some((p) => p.id === userId)) {
           room.players.push({ id: userId, username, color });
         }
       } else {
-        // s'il était déjà dans la liste players mais sans username à jour
         const idx = room.players.findIndex((p) => p.id === userId);
         if (idx >= 0) {
           room.players[idx] = { id: userId, username, color };
@@ -134,16 +132,10 @@ function initWebsocket(server) {
       }
 
       // (Optionnel) faire respecter le tour
-      // if (room.turn !== color) {
-      //   return socket.emit("error", { error: "Not your turn" });
-      // }
+      // if (room.turn !== color) return socket.emit("error", { error: "Not your turn" });
+      // room.turn = room.turn === "white" ? "black" : "white";
 
-      // (Optionnel) valider le coup, maj state...
-      // room.turn = (room.turn === "white") ? "black" : "white";
-
-      socket
-        .to(roomId)
-        .emit("move_piece", { move, color /*, turn: room.turn*/ });
+      socket.to(roomId).emit("move_piece", { move, color /*, turn: room.turn*/ });
     });
 
     // ===== MESSAGERIE TEMPS RÉEL =====
@@ -179,8 +171,8 @@ function initWebsocket(server) {
         };
 
         // 3) Diffusion temps réel
-        io.to(`user:${to}`).emit("message:new", msg); // destinataire
-        io.to(userRoom).emit("message:new", msg); // émetteur (toutes ses tabs)
+        io.to(`user:${to}`).emit("message:new", msg);
+        io.to(userRoom).emit("message:new", msg);
 
         // 4) Ack pour le client émetteur
         ack?.({ ok: true, msg });
@@ -191,9 +183,7 @@ function initWebsocket(server) {
     });
 
     socket.on("disconnect", (reason) => {
-      console.log(
-        `[WS] disconnect ${username} (${socket.id}) reason=${reason}`
-      );
+      console.log(`[WS] disconnect ${username} (${socket.id}) reason=${reason}`);
     });
   });
 

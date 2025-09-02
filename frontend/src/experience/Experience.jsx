@@ -13,8 +13,8 @@ export default function Experience() {
   const { roomId } = useParams();
   const { socket, connected, emit, on, off } = useWebSocket(user?.token);
 
-  const [players, setPlayers] = useState([]);
-  const [color, setColor] = useState(null); // "white" ou "black"
+  const [players, setPlayers] = useState([]);   // [{id, username, color}]
+  const [color, setColor] = useState(null);     // "white" | "black"
   const [copied, setCopied] = useState(false);
   const boardRef = useRef(null);
 
@@ -24,31 +24,41 @@ export default function Experience() {
     // Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
-    const handleRoomJoined = ({ players: joinedPlayers }) => {
-      setPlayers(joinedPlayers);
+    const handleRoomJoined = ({ players: joinedPlayers, yourColor }) => {
+      setPlayers(Array.isArray(joinedPlayers) ? joinedPlayers : []);
 
       // Attribue la couleur uniquement si pas encore défini
       setColor((prev) => {
         if (prev) return prev;
-        const isWhite = joinedPlayers[0] === user.username;
+        // si ton serveur envoie yourColor, on l'utilise; sinon on garde la logique existante
+        if (yourColor) return yourColor;
+        const usernames = (joinedPlayers || []).map((p) => p.username || p);
+        const isWhite = usernames[0] === user.username;
         return isWhite ? "white" : "black";
       });
     };
 
-    const handleMove = (move) => {
+    const handlePlayerUpdate = ({ players: updated }) => {
+      setPlayers(Array.isArray(updated) ? updated : []);
+    };
+
+    const handleMove = (moveObj) => {
+      const move = moveObj?.move || moveObj; // compat ancienne signature
       if (!move || !move.from || !move.to) {
-        console.warn("[WS] Move reçu invalide", move);
+        console.warn("[WS] Move reçu invalide", moveObj);
         return;
       }
       boardRef.current?.applyMove(move);
     };
 
     on("room_joined", handleRoomJoined);
+    on("room_player_update", handlePlayerUpdate); // utile si un joueur (re)joint
     on("move_piece", handleMove);
 
     return () => {
       emit("leave_room", { roomId });
       off("room_joined", handleRoomJoined);
+      off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
     };
   }, [roomId, socket, connected, emit, on, off, user]);
@@ -65,7 +75,9 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <header className="flex items-center justify-between px-6 py-4 text-white">
-        <div className="text-lg">Joueurs : {players.join(", ")}</div>
+        <div className="text-lg">
+          Joueurs : {players.map((p) => p.username ?? String(p)).join(", ")}
+        </div>
         <div className="text-2xl">
           {color === "black" ? <span>⚫</span> : <span>⚪</span>}
         </div>
