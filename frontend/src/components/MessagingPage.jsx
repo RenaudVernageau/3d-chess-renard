@@ -1,80 +1,71 @@
+// src/components/MessagingPage.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import useMedia from "../hooks/useMedia";
 import { ConversationsList, ChatWindow } from "./MessagingComponents";
 
 export default function MessagingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initial = searchParams.get("user");
+  const initial = searchParams.get("user") || null;
+
   const [selectedUserId, setSelectedUserId] = useState(initial);
 
-  // mobile = ≤ 767px (breakpoint Tailwind md)
-  const isMobile = useMedia("(max-width: 767px)");
-
-  // Sync URL -> state
+  // Synchronise l'état local <-> URL (y compris la remise à zéro)
   useEffect(() => {
     if (initial && initial !== selectedUserId) {
       setSelectedUserId(initial);
     }
+    if (!initial && selectedUserId) {
+      setSelectedUserId(null);
+    }
   }, [initial]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sélection d'une conversation
   const handleSelect = (id) => {
+    if (!id) {
+      setSelectedUserId(null);
+      // Enlève complètement le paramètre ?user de l'URL
+      setSearchParams({});
+      return;
+    }
     setSelectedUserId(id);
-    setSearchParams(id ? { user: id } : {});
-  };
-
-  // Action "retour" (utilisée en mobile)
-  const handleBack = () => {
-    setSelectedUserId(null);
-    setSearchParams({});
+    setSearchParams({ user: id });
   };
 
   return (
-    <div className="h-screen bg-stone-900 text-white">
-      <div className="mx-auto h-full max-w-6xl flex">
-        {/* -------------------------------------------------
-            LISTE (Conversations)
-            - Desktop (md+): toujours visible (w-1/3)
-            - Mobile: cachée si une conversation est ouverte
-           ------------------------------------------------- */}
-        <aside
-          className={[
-            "border-r border-stone-800",
-            "w-full md:w-1/3 md:block",
-            isMobile && selectedUserId ? "hidden" : "block",
-          ].join(" ")}
-        >
-          <ConversationsList onSelect={handleSelect} selectedId={selectedUserId} />
-        </aside>
+    <div className="h-screen flex bg-stone-900">
+      {/* LISTE DES CONVERSATIONS */}
+      <div
+        className={
+          // Mobile : si une conversation est sélectionnée -> on cache la liste
+          // Desktop (md+): toujours visible en colonne de gauche
+          selectedUserId ? "hidden md:block md:w-1/3" : "w-full md:w-1/3"
+        }
+      >
+        <ConversationsList
+          onSelect={handleSelect}
+          selectedId={selectedUserId}
+        />
+      </div>
 
-        {/* -------------------------------------------------
-            CHAT (Fenêtre de conversation)
-            - Desktop (md+): visible si un utilisateur est sélectionné
-                              sinon affiche un écran vide “Sélectionne…”
-            - Mobile: visible uniquement si une conversation est ouverte
-           ------------------------------------------------- */}
-        <main
-          className={[
-            "flex-1",
-            // sur mobile on n'affiche le chat que si une conv est sélectionnée
-            isMobile ? (selectedUserId ? "flex" : "hidden") : "flex",
-          ].join(" ")}
-        >
-          {selectedUserId ? (
-            <ChatWindow
-              otherId={selectedUserId}
-              // Si ton ChatWindow gère déjà un bouton "← Retour",
-              // tu n'as rien à changer. S'il expose un onBack, passe-le ici:
-              onBack={handleBack}
-            />
-          ) : (
-            // Ecran d’attente (uniquement desktop)
-            <div className="hidden md:flex flex-1 items-center justify-center text-stone-400">
-              Sélectionne une conversation pour démarrer
-            </div>
-          )}
-        </main>
+      {/* Séparateur visible seulement sur desktop */}
+      <div className="hidden md:block w-px bg-stone-700" />
+
+      {/* FENÊTRE DE CHAT */}
+      <div
+        className={
+          // Mobile : visible seulement quand une conversation est sélectionnée
+          // Desktop (md+): toujours visible à droite
+          selectedUserId ? "flex-1 flex flex-col" : "hidden md:flex md:flex-1"
+        }
+      >
+        {selectedUserId ? (
+          // Le bouton "Retour" dans ChatWindow fait navigate('/messages')
+          // Ce composant détecte l'URL sans ?user et remet selectedUserId à null.
+          <ChatWindow otherId={selectedUserId} />
+        ) : (
+          <div className="hidden md:flex flex-1 items-center justify-center text-stone-400">
+            Sélectionne une conversation pour démarrer
+          </div>
+        )}
       </div>
     </div>
   );
