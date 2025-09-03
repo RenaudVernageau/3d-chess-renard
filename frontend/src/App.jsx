@@ -16,6 +16,7 @@ import { OwnProfile, UserProfile } from "./components/Profile";
 import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
+import { useGameUiStore } from "./store/useGameUiStore";
 
 // PrivateRoute ne rend le composant que si l’utilisateur est authentifié
 function PrivateRoute({ children }) {
@@ -24,10 +25,14 @@ function PrivateRoute({ children }) {
 }
 
 export default function App() {
+  const { currentRoomId, myColor } = useGameUiStore();
   return (
     <AuthProvider>
       <Router>
-        <NavBar />
+        <NavBar
+          roomId={currentRoomId || undefined}
+          color={myColor || undefined}
+        />
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />

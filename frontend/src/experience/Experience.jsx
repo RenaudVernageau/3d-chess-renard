@@ -14,32 +14,28 @@ export default function Experience() {
   const { roomId } = useParams();
   const { socket, connected, emit, on, off } = useWebSocket(user?.token);
 
-  // players peut être un tableau d'objets [{id, username, color}] ou d'anciens strings
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
   const [copied, setCopied] = useState(false);
   const boardRef = useRef(null);
 
-  // Actions store global pour NavBar (roomId & color)
   const setGameUi   = useGameUiStore((s) => s.setGameUi);
   const clearGameUi = useGameUiStore((s) => s.clearGameUi);
 
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    // Publie la room dans le store (NavBar)
+    // Expose roomId pour la NavBar
     setGameUi({ currentRoomId: roomId });
 
     // Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
-    // Normalise un tableau de joueurs en noms pour fallback "premier = blanc"
     const toNames = (arr) =>
       (Array.isArray(arr) ? arr : []).map((p) =>
         typeof p === "string" ? p : p?.username
       );
 
-    // Créateur (certains flux envoient cet event)
     const handleRoomCreated = ({ players: createdPlayers, yourColor }) => {
       setPlayers(Array.isArray(createdPlayers) ? createdPlayers : []);
       setColor((prev) => {
@@ -51,7 +47,6 @@ export default function Experience() {
       });
     };
 
-    // Join / rejoin
     const handleRoomJoined = ({ players: joinedPlayers, yourColor }) => {
       setPlayers(Array.isArray(joinedPlayers) ? joinedPlayers : []);
       setColor((prev) => {
@@ -63,18 +58,14 @@ export default function Experience() {
       });
     };
 
-    // Mise à jour liste joueurs (quand un autre (re)joint)
     const handlePlayerUpdate = ({ players: updatedPlayers }) => {
       setPlayers(Array.isArray(updatedPlayers) ? updatedPlayers : []);
     };
 
-    // ✅ Accepte { move, color } OU directement move
+    // Accepte { move, color } ou move direct
     const handleMove = (payload) => {
       const m = payload?.move ?? payload;
-      if (!m || !m.from || !m.to) {
-        console.warn("[WS] Move reçu invalide:", payload);
-        return;
-      }
+      if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
     };
 
@@ -84,17 +75,16 @@ export default function Experience() {
     on("move_piece", handleMove);
 
     return () => {
-      // Optionnel si tu gères un leave côté serveur
       emit("leave_room", { roomId });
       off("room_created", handleRoomCreated);
       off("room_joined", handleRoomJoined);
       off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
-      clearGameUi(); // nettoie NavBar (plus de room en cours)
+      clearGameUi();
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, clearGameUi]);
 
-  // Quand la couleur est connue, publie dans le store pour NavBar
+  // Publie la couleur dès qu’on la connaît (pour l’icône ⚫/⚪ de la NavBar)
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
@@ -108,7 +98,6 @@ export default function Experience() {
     );
   }
 
-  // Affichage propre des joueurs (compat objets / strings)
   const playersLabel = (players || [])
     .map((p) => (typeof p === "string" ? p : p?.username))
     .join(", ");

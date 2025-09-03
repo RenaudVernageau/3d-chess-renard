@@ -1,15 +1,10 @@
 // src/store/useGameUiStore.js
 import { create } from "zustand";
 
-/**
- * Stocke les infos d'UI liées à la partie en cours pour la NavBar.
- * - currentRoomId: string|null
- * - myColor: "white"|"black"|null
- */
+/** Infos d’UI liées à la partie courante, lisibles par NavBar */
 export const useGameUiStore = create((set) => ({
-  currentRoomId: null,
-  myColor: null,
-
+  currentRoomId: null,      // string | null
+  myColor: null,            // "white" | "black" | null
   setGameUi: (partial) => set((s) => ({ ...s, ...partial })),
   clearGameUi: () => set({ currentRoomId: null, myColor: null }),
 }));
