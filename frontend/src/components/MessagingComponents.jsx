@@ -16,6 +16,7 @@ function parseJwt(token) {
 
 /**
  * Liste des conversations (dernier message par partenaire)
+ * - Ne force plus la largeur (laisse le parent décider).
  */
 export function ConversationsList({ onSelect, selectedId }) {
   const { conversations, fetchConversations } = useMessageStore();
@@ -24,53 +25,65 @@ export function ConversationsList({ onSelect, selectedId }) {
     fetchConversations();
   }, [fetchConversations]);
 
-  return (
-    <aside className="w-1/3 bg-stone-800 p-4 overflow-y-auto">
-      <h2 className="text-white text-lg font-semibold mb-4">Conversations</h2>
-      <ul className="space-y-3">
-        {conversations.map((conv) => {
-          const partner = conv.partner || {};
-          const isActive = String(partner._id) === String(selectedId);
-          const partnerName =
-            partner.username ||
-            (partner.email ? partner.email.split("@")[0] : "Joueur");
-          const avatar = partner.avatarUrl || "/default-avatar.jpg";
-          const last = conv.lastMessage;
-          const when =
-            last?.createdAt &&
-            new Date(last.createdAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+  const list = Array.isArray(conversations) ? conversations : [];
 
-          return (
-            <li
-              key={partner._id}
-              onClick={() => onSelect(partner._id)}
-              className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
-                isActive ? "bg-stone-700" : "hover:bg-stone-700"
-              }`}
-            >
-              <img
-                src={avatar}
-                alt={partnerName}
-                className="w-12 h-12 rounded-full object-cover mr-3"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div className="text-white font-medium truncate">
-                    {partnerName}
+  return (
+    <aside className="h-full w-full bg-stone-800 p-4 overflow-y-auto">
+      <h2 className="text-white text-lg font-semibold mb-4">Conversations</h2>
+
+      {list.length === 0 ? (
+        <div className="text-stone-400 text-sm">
+          Aucune conversation pour le moment.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((conv) => {
+            const partner = conv?.partner || {};
+            const pid = String(partner?._id || "");
+            const isActive = pid && String(pid) === String(selectedId);
+
+            const partnerName =
+              partner.username ||
+              (partner.email ? partner.email.split("@")[0] : "Joueur");
+            const avatar = partner.avatarUrl || "/default-avatar.jpg";
+
+            const last = conv?.lastMessage;
+            const when =
+              last?.createdAt &&
+              new Date(last.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+            return (
+              <li
+                key={pid || conv?.lastMessage?._id || Math.random().toString(36)}
+                onClick={() => pid && onSelect(String(pid))}
+                className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
+                  isActive ? "bg-stone-700" : "hover:bg-stone-700"
+                }`}
+              >
+                <img
+                  src={avatar}
+                  alt={partnerName}
+                  className="w-12 h-12 rounded-full object-cover mr-3"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <div className="text-white font-medium truncate">
+                      {partnerName}
+                    </div>
+                    <div className="text-xs text-stone-400 ml-2">{when}</div>
                   </div>
-                  <div className="text-xs text-stone-400 ml-2">{when}</div>
+                  <div className="text-sm text-stone-400 truncate">
+                    {last?.text}
+                  </div>
                 </div>
-                <div className="text-sm text-stone-400 truncate">
-                  {last?.text}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </aside>
   );
 }
@@ -137,8 +150,8 @@ export function ChatWindow({ otherId, onBack }) {
   const msgs = Array.isArray(messages[otherId]) ? messages[otherId] : [];
 
   // 🌟 Nom/Avatar dans l’en-tête (si dispo via conversations)
-  const partner = conversations.find(
-    (c) => String(c.partner?._id) === String(otherId)
+  const partner = (Array.isArray(conversations) ? conversations : []).find(
+    (c) => String(c?.partner?._id) === String(otherId)
   )?.partner;
   const partnerName =
     partner?.username ||
@@ -151,8 +164,7 @@ export function ChatWindow({ otherId, onBack }) {
       onBack();
     } else {
       setSearchParams({}); // ⬅️ vide le paramètre ?user=
-      // Optionnel : si tu souhaites forcer la route
-      // navigate("/messages");
+      // navigate("/messages"); // (optionnel si tu préfères forcer la route)
     }
   };
 
