@@ -37,7 +37,7 @@ export default function NavBar() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex h-14 items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold text-white">
-            <span className="text-xl">Roi des jeux</span>
+            <span className="text-xl">Roi des jeux ♔</span>
           </Link>
 
           {/* Burger */}
