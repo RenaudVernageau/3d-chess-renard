@@ -16,7 +16,6 @@ export default function Experience() {
 
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
-  const [copied, setCopied] = useState(false);
   const boardRef = useRef(null);
 
   const setGameUi   = useGameUiStore((s) => s.setGameUi);
@@ -25,10 +24,8 @@ export default function Experience() {
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    // Expose roomId pour la NavBar
     setGameUi({ currentRoomId: roomId });
 
-    // Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
     const toNames = (arr) =>
@@ -36,8 +33,14 @@ export default function Experience() {
         typeof p === "string" ? p : p?.username
       );
 
+    const publishPlayers = (arr) => {
+      const names = toNames(arr);
+      setPlayers(arr);
+      setGameUi({ players: names }); // ✅ stocke les joueurs dans le store
+    };
+
     const handleRoomCreated = ({ players: createdPlayers, yourColor }) => {
-      setPlayers(Array.isArray(createdPlayers) ? createdPlayers : []);
+      publishPlayers(createdPlayers);
       setColor((prev) => {
         if (yourColor) return yourColor;
         if (prev) return prev;
@@ -48,7 +51,7 @@ export default function Experience() {
     };
 
     const handleRoomJoined = ({ players: joinedPlayers, yourColor }) => {
-      setPlayers(Array.isArray(joinedPlayers) ? joinedPlayers : []);
+      publishPlayers(joinedPlayers);
       setColor((prev) => {
         if (yourColor) return yourColor;
         if (prev) return prev;
@@ -59,7 +62,7 @@ export default function Experience() {
     };
 
     const handlePlayerUpdate = ({ players: updatedPlayers }) => {
-      setPlayers(Array.isArray(updatedPlayers) ? updatedPlayers : []);
+      publishPlayers(updatedPlayers);
     };
 
     // Accepte { move, color } ou move direct
@@ -84,12 +87,13 @@ export default function Experience() {
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, clearGameUi]);
 
-  // Publie la couleur dès qu’on la connaît (pour l’icône ⚫/⚪ de la NavBar)
+  // Publie la couleur dans le store
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
 
   if (!roomId) return <Navigate to="/lobby" replace />;
+
   if (!connected || !color) {
     return (
       <div className="p-4 text-center text-white bg-black">
@@ -98,31 +102,8 @@ export default function Experience() {
     );
   }
 
-  const playersLabel = (players || [])
-    .map((p) => (typeof p === "string" ? p : p?.username))
-    .join(", ");
-
   return (
     <div className="flex flex-col w-full h-screen bg-black">
-      <header className="flex items-center justify-between px-6 py-4 text-white">
-        <div className="text-lg">Joueurs : {playersLabel}</div>
-        <div className="text-2xl">{color === "black" ? "⚫" : "⚪"}</div>
-        <div
-          className="flex items-center space-x-2 cursor-pointer"
-          onClick={() => {
-            navigator.clipboard.writeText(roomId);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
-          title="Cliquez pour copier l'ID de la room"
-        >
-          <span className="text-lg underline">
-            Room : <strong>{roomId}</strong>
-          </span>
-          <span className="text-lg">{copied ? "✅" : "📋"}</span>
-        </div>
-      </header>
-
       <div className="flex-1 relative">
         <Canvas flat shadows camera={{ fov: 45, near: 0.1, far: 200 }}>
           <Controls isWhite={color === "white"} />
