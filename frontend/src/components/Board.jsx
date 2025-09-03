@@ -39,13 +39,27 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
   const [selected, setSelected] = useState(null);
 
   // ✅ Interpréteur pour appliquer un move WebSocket
-  const applyMove = useCallback(({ from, to }) => {
-    if (!from || !to) {
-      console.warn("[Board] ❌ Move incomplet ou invalide :", { from, to });
-      return;
-    }
-    move({ from, to });
-  }, [move]);
+  // Accepte { from, to } OU { move: { from, to } }
+  const applyMove = useCallback(
+    (payload) => {
+      const m = payload?.move ?? payload;
+      const from = m?.from;
+      const to = m?.to;
+
+      if (!from || !to) {
+        console.warn("[Board] ❌ Move incomplet ou invalide:", payload);
+        return;
+      }
+
+      // Applique le coup côté client
+      try {
+        move({ from, to });
+      } catch (e) {
+        console.warn("[Board] move() a rejeté le coup:", { from, to }, e);
+      }
+    },
+    [move]
+  );
 
   // Expose la méthode à l’extérieur via la ref
   useImperativeHandle(ref, () => ({ applyMove }));
@@ -59,17 +73,25 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
   useEffect(() => {
     if (!lastMove) return;
-    if (lastMove.san?.includes("+")) moveCheckSound.play();
-    else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e"))
-      captureSound.play();
-    else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q"))
-      castleSound.play();
-    else moveSelfSound.play();
-  }, [lastMove]);
+    try {
+      if (lastMove.san?.includes("+")) moveCheckSound.play();
+      else if (lastMove.flags?.includes("c") || lastMove.flags?.includes("e"))
+        captureSound.play();
+      else if (lastMove.flags?.includes("k") || lastMove.flags?.includes("q"))
+        castleSound.play();
+      else moveSelfSound.play();
+    } catch {
+      /* ignore autoplay restrictions */
+    }
+  }, [lastMove, moveCheckSound, captureSound, castleSound, moveSelfSound]);
 
   useEffect(() => {
-    if (gameOver) gameEndSound.play();
-  }, [gameOver]);
+    if (gameOver) {
+      try {
+        gameEndSound.play();
+      } catch {}
+    }
+  }, [gameOver, gameEndSound]);
 
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
@@ -78,14 +100,16 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
   const handleClick = useCallback(
     (r, c) => {
-      if (turn !== (color === "white" ? "w" : "b")) return;
+      // Respect du tour local
+      const myTurn = color === "white" ? "w" : "b";
+      if (turn !== myTurn) return;
 
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
       // Sélection de ses propres pièces
       if (!selected) {
-        if (piece && piece.color === (color === "white" ? "w" : "b")) {
+        if (piece && piece.color === myTurn) {
           setSelected(sq);
         }
         return;
@@ -99,8 +123,21 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
       // Coup légal (move ou capture)
       if (legal.includes(sq)) {
-        move({ from: selected, to: sq });
-        socket.emit("move_piece", { roomId, move: { from: selected, to: sq } });
+        // Applique localement
+        try {
+          move({ from: selected, to: sq });
+        } catch (e) {
+          console.warn("[Board] move() local a échoué:", { from: selected, to: sq }, e);
+          setSelected(null);
+          return;
+        }
+
+        // Diffuse via WS
+        if (socket && roomId) {
+          const payload = { roomId, move: { from: selected, to: sq }, color };
+          // console.log("[Board] emit move_piece", payload);
+          socket.emit("move_piece", payload);
+        }
       }
 
       setSelected(null);
@@ -108,7 +145,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     [board, selected, legal, move, turn, socket, roomId, color]
   );
 
-  // Mettez en évidence le roi en échec
+  // Mise en évidence du roi en échec
   const isCheck = lastMove?.san?.includes("+");
   const checkSquare = useMemo(() => {
     if (!isCheck) return null;
@@ -138,11 +175,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
 
       <mesh receiveShadow position={[0, -0.16, 0]}>
         <boxGeometry args={[8.4, 0.3, 8.4]} />
-        <meshStandardMaterial
-          color="#111111"
-          metalness={0.2}
-          roughness={0.8}
-        />
+        <meshStandardMaterial color="#111111" metalness={0.2} roughness={0.8} />
       </mesh>
 
       {board.map((rowArr, r) =>
@@ -151,8 +184,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
           const dark = (r + c) % 2 === 1;
           let col = dark ? darkColor : lightColor;
           if (sq === selected) col = "#f7e26b";
-          else if (legal.includes(sq))
-            col = rowArr[c] ? "#ff6b6b" : "#f7e26b";
+          else if (legal.includes(sq)) col = rowArr[c] ? "#ff6b6b" : "#f7e26b";
           return (
             <mesh
               key={`${r}-${c}`}
