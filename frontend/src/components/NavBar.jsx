@@ -1,16 +1,19 @@
-// src/components/NavBar.jsx
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
+import { useMessageStore } from "../store/useMessageStore";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Store
-  const roomId   = useGameUiStore((s) => s.currentRoomId);
-  const color    = useGameUiStore((s) => s.myColor);
-  const players  = useGameUiStore((s) => s.players) || [];
+  // Store jeu
+  const roomId  = useGameUiStore((s) => s.currentRoomId);
+  const color   = useGameUiStore((s) => s.myColor);
+  const players = useGameUiStore((s) => s.players) || [];
+
+  // Store messages
+  const totalUnread = useMessageStore((s) => s.totalUnread());
 
   const playersList = (Array.isArray(players) ? players : [])
     .map((p) => (typeof p === "string" ? p : p?.username))
@@ -47,27 +50,43 @@ export default function NavBar() {
             aria-controls="mobile-menu"
             aria-label="Ouvrir le menu"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5 text-stone-100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
-              {open ? (
-                <path d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path d="M3 6h18M3 12h18M3 18h18" />
-              )}
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-stone-100" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {open ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
             </svg>
           </button>
 
-          {/* Liens desktop */}
+          {/* Liens desktop + badge total non-lus */}
           <nav className="hidden md:flex items-center gap-6 text-stone-200">
-            <Link to="/messages" className="hover:text-white">💬 Messages</Link>
+            <Link to="/messages" className="relative hover:text-white">
+              💬 Messages
+              {totalUnread > 0 && (
+                <span className="absolute -top-2 -right-3 rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5 leading-none">
+                  {totalUnread > 99 ? "99+" : totalUnread}
+                </span>
+              )}
+            </Link>
             <Link to="/users" className="hover:text-white">👥 Liste des utilisateurs</Link>
           </nav>
+        </div>
+
+        {/* Menu mobile */}
+        <div
+          id="mobile-menu"
+          className={`md:hidden overflow-hidden transition-[max-height] duration-300 ${open ? "max-h-64" : "max-h-0"}`}
+        >
+          <div className="flex flex-col gap-3 py-3 text-stone-200">
+            <Link to="/messages" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
+              💬 Messages
+              {totalUnread > 0 && (
+                <span className="ml-2 rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">
+                  {totalUnread > 99 ? "99+" : totalUnread}
+                </span>
+              )}
+            </Link>
+            <Link to="/users" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
+              👥 Liste des utilisateurs
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -87,32 +106,29 @@ export default function NavBar() {
                   <span className="opacity-80">Joueurs&nbsp;: —</span>
                 )}
                 {typeof color === "string" && (
-                  <span className="text-xl">{color === "white" ? "⚪" : "⚫"}</span>
+                  <span className="text-xl" aria-label={`couleur ${color}`} title={`Couleur : ${color}`}>
+                    {color === "white" ? "⚪" : "⚫"}
+                  </span>
                 )}
               </div>
 
-              {/* Room + copier */}
+              {/* Room + copier (sélectionnable + hover animé) */}
               <div className="flex items-center gap-3">
                 {roomId && (
                   <>
                     <div className="flex items-center gap-2">
                       <span className="opacity-80">Room&nbsp;:</span>
-
-                      {/* Sélectionnable + clique-copie + hover animé */}
                       <button
                         type="button"
                         onClick={handleCopyRoom}
-                        onKeyDown={(e) =>
-                          (e.key === "Enter" || e.key === " ") && handleCopyRoom()
-                        }
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleCopyRoom()}
                         className="underline underline-offset-2 break-all select-text cursor-pointer transition-colors duration-200 ease-in-out hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 px-0"
                         title="Cliquer pour copier (ou sélectionner pour copier)"
+                        aria-label="Copier l'ID de la room"
                       >
                         {roomId}
                       </button>
                     </div>
-
-                    {/* Bouton copie avec feedback + hover animé */}
                     <button
                       type="button"
                       onClick={handleCopyRoom}

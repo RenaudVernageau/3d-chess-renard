@@ -1,4 +1,3 @@
-// src/components/MessagingComponents.jsx
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMessageStore } from "../store/useMessageStore";
@@ -16,10 +15,9 @@ function parseJwt(token) {
 
 /**
  * Liste des conversations (dernier message par partenaire)
- * - Ne force plus la largeur (laisse le parent décider).
  */
 export function ConversationsList({ onSelect, selectedId }) {
-  const { conversations, fetchConversations } = useMessageStore();
+  const { conversations, fetchConversations, unreadByRoom } = useMessageStore();
 
   useEffect(() => {
     fetchConversations();
@@ -55,6 +53,8 @@ export function ConversationsList({ onSelect, selectedId }) {
                 minute: "2-digit",
               });
 
+            const unread = (unreadByRoom && pid && unreadByRoom[pid]) || 0;
+
             return (
               <li
                 key={pid || conv?.lastMessage?._id || Math.random().toString(36)}
@@ -73,7 +73,14 @@ export function ConversationsList({ onSelect, selectedId }) {
                     <div className="text-white font-medium truncate">
                       {partnerName}
                     </div>
-                    <div className="text-xs text-stone-400 ml-2">{when}</div>
+                    <div className="flex items-center gap-2">
+                      {unread > 0 && (
+                        <span className="inline-block rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">
+                          {unread > 99 ? "99+" : unread}
+                        </span>
+                      )}
+                      <div className="text-xs text-stone-400">{when}</div>
+                    </div>
                   </div>
                   <div className="text-sm text-stone-400 truncate">
                     {last?.text}
@@ -90,8 +97,6 @@ export function ConversationsList({ onSelect, selectedId }) {
 
 /**
  * Fenêtre de chat pour une conversation
- * - Nettoie `?user=` au clic sur "Retour" pour repasser en mode liste.
- * - `onBack` (optionnel) permet au parent de gérer le retour (ex: setSelectedUserId(null)).
  */
 export function ChatWindow({ otherId, onBack }) {
   const { user, token: authTokenFromHook } = useAuth() || {};
@@ -108,6 +113,8 @@ export function ChatWindow({ otherId, onBack }) {
     sendMessageRealtime,
     handleIncomingSocketMessage,
     conversations,
+    setActiveRoom,
+    clearUnread,
   } = useMessageStore();
 
   const [text, setText] = useState("");
@@ -127,7 +134,7 @@ export function ChatWindow({ otherId, onBack }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages[otherId]]);
 
-  // WS: réception message
+  // WS: réception message (redondant avec écoute globale, mais ok grâce à l'anti-doublon)
   useEffect(() => {
     if (!socket || !myId) return;
     const handler = (msg) => {
@@ -136,6 +143,14 @@ export function ChatWindow({ otherId, onBack }) {
     on("message:new", handler);
     return () => off("message:new", handler);
   }, [socket, myId, on, off, handleIncomingSocketMessage]);
+
+  // Active la room et clear les non-lus quand on est dessus
+  useEffect(() => {
+    if (!otherId) return;
+    setActiveRoom(otherId);
+    clearUnread(otherId);
+    return () => setActiveRoom(null);
+  }, [otherId, setActiveRoom, clearUnread]);
 
   const handleSend = (e) => {
     e?.preventDefault();
@@ -163,12 +178,10 @@ export function ChatWindow({ otherId, onBack }) {
     if (onBack) {
       onBack();
     } else {
-      setSearchParams({}); // ⬅️ vide le paramètre ?user=
-      // navigate("/messages"); // (optionnel si tu préfères forcer la route)
+      setSearchParams({});
     }
   };
 
-  // ⛔ Si pas encore d'ID utilisateur, écran neutre
   if (!myId) {
     return (
       <div className="flex flex-col flex-1 bg-stone-900">

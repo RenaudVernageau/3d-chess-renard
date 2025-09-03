@@ -1,4 +1,3 @@
-// src/store/useMessageStore.js
 import { create } from "zustand";
 import api from "../api";
 
@@ -28,6 +27,24 @@ const pickPartnerFromMsg = (msg, myId) => {
 export const useMessageStore = create((set, get) => ({
   conversations: [],      // [{ partner: {_id, username, avatarUrl}, lastMessage }]
   messages: {},           // { [otherId]: [ Message ] }
+
+  // 🔔 Notifications
+  unreadByRoom: {},       // { [otherId]: number }
+  activeRoomId: null,
+
+  setActiveRoom: (roomId) => set({ activeRoomId: S(roomId) || null }),
+  setUnreadCount: (roomId, count) =>
+    set((s) => ({ unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: Math.max(0, count) } })),
+  incUnread: (roomId) =>
+    set((s) => ({
+      unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: (s.unreadByRoom[S(roomId)] || 0) + 1 },
+    })),
+  clearUnread: (roomId) =>
+    set((s) => ({ unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: 0 } })),
+  totalUnread: () => {
+    const map = get().unreadByRoom || {};
+    return Object.values(map).reduce((a, b) => a + (b || 0), 0);
+  },
 
   /** --- REST --- */
 
@@ -130,7 +147,6 @@ export const useMessageStore = create((set, get) => ({
         const idx = convs.findIndex((c) => S(c.partner?._id) === key);
         if (idx >= 0) {
           convs[idx] = { ...convs[idx], lastMessage: m };
-          // bump to top
           const [item] = convs.splice(idx, 1);
           convs.unshift(item);
         } else {
@@ -270,5 +286,12 @@ export const useMessageStore = create((set, get) => ({
 
       return { conversations: convs };
     });
+
+    // 🔔 Incrément non-lus si le fil n'est pas actif et que le message vient d'un autre
+    const active = get().activeRoomId;
+    if (otherId && otherId !== active && from !== my) {
+      const curr = get().unreadByRoom[otherId] || 0;
+      set({ unreadByRoom: { ...get().unreadByRoom, [otherId]: curr + 1 } });
+    }
   },
 }));
