@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMessageStore } from "../store/useMessageStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import useWebSocket from "../hooks/useWebSocket";
 
 function parseJwt(token) {
@@ -77,11 +77,15 @@ export function ConversationsList({ onSelect, selectedId }) {
 
 /**
  * Fenêtre de chat pour une conversation
+ * - Nettoie `?user=` au clic sur "Retour" pour repasser en mode liste.
+ * - `onBack` (optionnel) permet au parent de gérer le retour (ex: setSelectedUserId(null)).
  */
-export function ChatWindow({ otherId }) {
+export function ChatWindow({ otherId, onBack }) {
   const { user, token: authTokenFromHook } = useAuth() || {};
   const authToken = authTokenFromHook || localStorage.getItem("token") || "";
-  const myId = String(user?.id || user?._id || parseJwt(authToken)?.sub || "");
+  const myId = String(
+    user?.id || user?._id || parseJwt(authToken)?.sub || ""
+  );
 
   const { socket, on, off } = useWebSocket(authToken);
 
@@ -95,6 +99,7 @@ export function ChatWindow({ otherId }) {
 
   const [text, setText] = useState("");
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const endRef = useRef(null);
 
   // Récupère l'historique
@@ -140,14 +145,25 @@ export function ChatWindow({ otherId }) {
     (partner?.email ? partner.email.split("@")[0] : "Joueur");
   const partnerAvatar = partner?.avatarUrl || "/default-avatar.jpg";
 
-  // ⛔ Si pas encore d'ID utilisateur, affiche un écran neutre
+  // 🔙 Retour : efface ?user= (ou appelle onBack si fourni)
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      setSearchParams({}); // ⬅️ vide le paramètre ?user=
+      // Optionnel : si tu souhaites forcer la route
+      // navigate("/messages");
+    }
+  };
+
+  // ⛔ Si pas encore d'ID utilisateur, écran neutre
   if (!myId) {
     return (
       <div className="flex flex-col flex-1 bg-stone-900">
         <header className="bg-stone-800 p-4 flex items-center gap-3">
           <button
-            onClick={() => navigate("/messages")}
-            className="text-stone-400 hover:text-white"
+            onClick={handleBackClick}
+            className="text-stone-400 hover:text-white md:hidden"
           >
             ← Retour
           </button>
@@ -162,9 +178,10 @@ export function ChatWindow({ otherId }) {
     <div className="flex flex-col flex-1 bg-stone-900">
       {/* Header */}
       <header className="bg-stone-800 p-4 flex items-center gap-3">
+        {/* visible surtout sur mobile */}
         <button
-          onClick={() => navigate("/messages")}
-          className="text-stone-400 hover:text-white"
+          onClick={handleBackClick}
+          className="text-stone-400 hover:text-white md:hidden"
         >
           ← Retour
         </button>
@@ -196,9 +213,7 @@ export function ChatWindow({ otherId }) {
                 </div>
                 <div
                   className={`px-4 py-2 rounded-2xl break-words relative ${
-                    isMine
-                      ? "bg-blue-600 text-white"
-                      : "bg-stone-700 text-white"
+                    isMine ? "bg-blue-600 text-white" : "bg-stone-700 text-white"
                   }`}
                 >
                   <span>{msg.text}</span>
