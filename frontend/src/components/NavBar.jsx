@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
 import { useMessageStore } from "../store/useMessageStore";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
 
   // Store jeu
   const roomId  = useGameUiStore((s) => s.currentRoomId);
@@ -29,6 +30,10 @@ export default function NavBar() {
     } catch (e) {
       console.error("Impossible de copier l'ID de la room", e);
     }
+  };
+
+  const handleResumeGame = () => {
+    if (roomId) navigate(`/room/${roomId}`);
   };
 
   return (
@@ -55,9 +60,9 @@ export default function NavBar() {
             </svg>
           </button>
 
-          {/* Liens desktop + badge total non-lus */}
-          <nav className="hidden md:flex items-center gap-6 text-stone-200">
-            <Link to="/messages" className="relative hover:text-white">
+          {/* Liens desktop + badge total non-lus + Reprendre la partie */}
+          <nav className="hidden md:flex items-center gap-4 text-stone-200">
+            <Link to="/messages" className="relative hover:text-white px-2 py-1 rounded">
               💬 Messages
               {totalUnread > 0 && (
                 <span className="absolute -top-2 -right-3 rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5 leading-none">
@@ -65,7 +70,19 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
-            <Link to="/users" className="hover:text-white">👥 Liste des utilisateurs</Link>
+            <Link to="/users" className="hover:text-white px-2 py-1 rounded">
+              👥 Liste des utilisateurs
+            </Link>
+
+            {roomId && (
+              <button
+                onClick={handleResumeGame}
+                className="ml-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
+                title="Revenir à la partie en cours"
+              >
+                🎮 Reprendre la partie
+              </button>
+            )}
           </nav>
         </div>
 
@@ -86,6 +103,16 @@ export default function NavBar() {
             <Link to="/users" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
               👥 Liste des utilisateurs
             </Link>
+
+            {roomId && (
+              <button
+                onClick={() => { setOpen(false); handleResumeGame(); }}
+                className="mt-1 w-fit rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
+                title="Revenir à la partie en cours"
+              >
+                🎮 Reprendre la partie
+              </button>
+            )}
           </div>
         </div>
       </div>
