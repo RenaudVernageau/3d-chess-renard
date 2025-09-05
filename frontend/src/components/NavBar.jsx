@@ -1,11 +1,13 @@
+// src/components/NavBar.jsx
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
 import { useMessageStore } from "../store/useMessageStore";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
 
   // Store jeu
@@ -21,6 +23,10 @@ export default function NavBar() {
     .filter(Boolean)
     .join(", ");
 
+  // Sommes-nous sur la page de jeu ?
+  // HashRouter -> pathname ressemble à "/play/xxxxx"
+  const isOnGameRoute = location.pathname.startsWith("/play/");
+
   const handleCopyRoom = async () => {
     if (!roomId) return;
     try {
@@ -33,7 +39,7 @@ export default function NavBar() {
   };
 
   const handleResumeGame = () => {
-    if (roomId) navigate(`/room/${roomId}`);
+    if (roomId) navigate(`/play/${roomId}`);
   };
 
   return (
@@ -60,7 +66,7 @@ export default function NavBar() {
             </svg>
           </button>
 
-          {/* Liens desktop + badge total non-lus + Reprendre la partie */}
+          {/* Liens desktop + badge total non-lus + (Resume game hors page de jeu) */}
           <nav className="hidden md:flex items-center gap-4 text-stone-200">
             <Link to="/messages" className="relative hover:text-white px-2 py-1 rounded">
               💬 Messages
@@ -74,13 +80,13 @@ export default function NavBar() {
               👥 Liste des utilisateurs
             </Link>
 
-            {roomId && (
+            {roomId && !isOnGameRoute && (
               <button
                 onClick={handleResumeGame}
                 className="ml-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
                 title="Revenir à la partie en cours"
               >
-                🎮 Reprendre la partie
+                🎮 Resume game
               </button>
             )}
           </nav>
@@ -104,20 +110,20 @@ export default function NavBar() {
               👥 Liste des utilisateurs
             </Link>
 
-            {roomId && (
+            {roomId && !isOnGameRoute && (
               <button
                 onClick={() => { setOpen(false); handleResumeGame(); }}
                 className="mt-1 w-fit rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
                 title="Revenir à la partie en cours"
               >
-                🎮 Reprendre la partie
+                🎮 Resume game
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Barre du bas */}
+      {/* Barre du bas (infos partie) */}
       {(playersList || roomId) && (
         <div className="w-full bg-black text-stone-100">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -139,7 +145,7 @@ export default function NavBar() {
                 )}
               </div>
 
-              {/* Room + copier (sélectionnable + hover animé) */}
+              {/* Room + copier */}
               <div className="flex items-center gap-3">
                 {roomId && (
                   <>
@@ -147,7 +153,9 @@ export default function NavBar() {
                       <span className="opacity-80">Room&nbsp;:</span>
                       <button
                         type="button"
-                        onClick={handleCopyRoom}
+                        onClick={() => {
+                          handleCopyRoom();
+                        }}
                         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleCopyRoom()}
                         className="underline underline-offset-2 break-all select-text cursor-pointer transition-colors duration-200 ease-in-out hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 px-0"
                         title="Cliquer pour copier (ou sélectionner pour copier)"

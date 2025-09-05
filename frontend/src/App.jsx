@@ -18,17 +18,14 @@ import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
-// PrivateRoute attend la réhydratation puis vérifie l'auth
+// PrivateRoute attend la réhydratation et check aussi localStorage
 function PrivateRoute({ children }) {
-  const auth = useAuth();
-  const ready =
-    typeof auth?.ready === "boolean" ? auth.ready : true; // compat au cas où
-  const isAuthenticated =
-    typeof auth?.isAuthenticated === "boolean"
-      ? auth.isAuthenticated
-      : !!auth?.user;
+  const { ready, isAuthenticated } = useAuth();
+  const tokenInStorage = typeof window !== "undefined" && localStorage.getItem("token");
 
-  if (!ready) {
+  // Tant qu'on n'a pas fini de réhydrater, si un token existe en storage,
+  // on affiche un petit loader (au lieu de rediriger trop vite).
+  if (!ready && tokenInStorage) {
     return (
       <div className="p-4 text-center text-white bg-black">
         Loading…
