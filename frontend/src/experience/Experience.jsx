@@ -39,47 +39,65 @@ export default function Experience() {
       setGameUi({ players: names });
     };
 
-    const handleRoomCreated = ({ players: createdPlayers, yourColor }) => {
+    // ——— Handlers ———
+
+    const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
       publishPlayers(createdPlayers);
-      setColor((prev) => {
-        if (yourColor) return yourColor;
-        if (prev) return prev;
-        const names = toNames(createdPlayers);
-        const isWhite = names[0] === user.username;
-        return isWhite ? "white" : "black";
-      });
+
+      // Déterminer MA couleur (source prioritaire: yourColor)
+      const names = toNames(createdPlayers);
+      const fallback = names[0] === user.username ? "white" : "black";
+      const myColor = yourColor || fallback;
+
+      setColor((prev) => prev || myColor);
+      setGameUi({ myColor: myColor });
+
+      // Initialiser l'indication de tour si fournie par le serveur
+      if (activeColor === "white" || activeColor === "black") {
+        setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
+      }
     };
 
-    const handleRoomJoined = ({ players: joinedPlayers, yourColor }) => {
+    const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
       publishPlayers(joinedPlayers);
-      setColor((prev) => {
-        if (yourColor) return yourColor;
-        if (prev) return prev;
-        const names = toNames(joinedPlayers);
-        const isWhite = names[0] === user.username;
-        return isWhite ? "white" : "black";
-      });
+
+      const names = toNames(joinedPlayers);
+      const fallback = names[0] === user.username ? "white" : "black";
+      const myColor = yourColor || fallback;
+
+      setColor((prev) => prev || myColor);
+      setGameUi({ myColor: myColor });
+
+      if (activeColor === "white" || activeColor === "black") {
+        setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
+      }
     };
 
     const handlePlayerUpdate = ({ players: updatedPlayers }) => {
       publishPlayers(updatedPlayers);
     };
 
-    // Accepte { move, color } ou move direct
+    // Accepte { move, color } ou move direct (on NE toggle PAS le tour ici)
     const handleMove = (payload) => {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
     };
 
+    // MAJ du tour côté serveur
+    const handleTurnUpdate = ({ activeColor }) => {
+      if (activeColor !== "white" && activeColor !== "black") return;
+      const myColorNow = useGameUiStore.getState().myColor || color;
+      setGameUi({ turnColor: activeColor, myTurn: myColorNow === activeColor });
+    };
+
     // Adversaire a quitté
     const handlePeerQuit = () => setPeerQuit(true);
 
-    // ⚠️ Gestion des erreurs serveur (ex: Room not found)
+    // Gestion erreurs (fallback: créer la room si join_room échoue)
     const handleServerError = (err) => {
       const msg = typeof err === "string" ? err : err?.error;
       if (msg === "Room not found") {
-        // ➜ on crée la room avec cet ID puis on rejoindra via room_created
         emit("create_room_with_id", { roomId, username: user.username });
       }
     };
@@ -89,13 +107,14 @@ export default function Experience() {
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
     on("move_piece", handleMove);
+    on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
     on("error", handleServerError);
 
-    // 2) Maintenant seulement, rejoindre la room
+    // 2) Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
-    // 3) Sécu : si rien ne revient, on peut demander un état (si le back supporte)
+    // 3) Sécu (si dispo côté back)
     const safety = setTimeout(() => emit("state_request", { roomId }), 800);
 
     return () => {
@@ -106,14 +125,16 @@ export default function Experience() {
       off("room_joined", handleRoomJoined);
       off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
+      off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
       off("error", handleServerError);
 
+      // On garde currentRoomId pour "Resume game" si on quitte la page sans quitter la partie
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
-  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
+  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
 
-  // Publie la couleur (pour l'icône ⚪/⚫ de la NavBar)
+  // Publie la couleur (pour l'icône ⚪/⚫ de la NavBar si set ailleurs)
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
@@ -124,6 +145,8 @@ export default function Experience() {
       if (document.visibilityState !== "visible") return;
       if (roomId && socket) {
         emit("join_room", { roomId, username: user.username });
+        // Optionnel: resync d'état si supporté
+        emit("state_request", { roomId });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -148,6 +171,8 @@ export default function Experience() {
       myColor: undefined,
       players: [],
       isInGame: false,
+      turnColor: undefined,
+      myTurn: undefined,
     });
     navigate("/lobby", { replace: true });
   };
@@ -168,6 +193,8 @@ export default function Experience() {
                 myColor: undefined,
                 players: [],
                 isInGame: false,
+                turnColor: undefined,
+                myTurn: undefined,
               });
               navigate("/lobby", { replace: true });
             }}
