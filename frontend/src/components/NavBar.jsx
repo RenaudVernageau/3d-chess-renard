@@ -11,9 +11,11 @@ export default function NavBar() {
   const navigate = useNavigate();
 
   // Store jeu
-  const roomId  = useGameUiStore((s) => s.currentRoomId);
-  const color   = useGameUiStore((s) => s.myColor);
-  const players = useGameUiStore((s) => s.players) || [];
+  const roomId    = useGameUiStore((s) => s.currentRoomId);
+  const color     = useGameUiStore((s) => s.myColor);
+  const players   = useGameUiStore((s) => s.players) || [];
+  const turnColor = useGameUiStore((s) => s.turnColor);
+  const myTurn    = useGameUiStore((s) => s.myTurn);
 
   // Store messages
   const totalUnread = useMessageStore((s) => s.totalUnread());
@@ -24,7 +26,6 @@ export default function NavBar() {
     .join(", ");
 
   // Sommes-nous sur la page de jeu ?
-  // HashRouter -> pathname ressemble à "/play/xxxxx"
   const isOnGameRoute = location.pathname.startsWith("/play/");
 
   const handleCopyRoom = async () => {
@@ -86,7 +87,7 @@ export default function NavBar() {
                 className="ml-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
                 title="Revenir à la partie en cours"
               >
-                🎮 Resume game
+                🎮 Retourner à la partie
               </button>
             )}
           </nav>
@@ -116,19 +117,19 @@ export default function NavBar() {
                 className="mt-1 w-fit rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
                 title="Revenir à la partie en cours"
               >
-                🎮 Retourner à la partie
+                🎮 Resume game
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Barre du bas (infos partie) */}
+      {/* Barre du bas (infos partie + indication de tour) */}
       {(playersList || roomId) && (
         <div className="w-full bg-black text-stone-100">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex h-10 items-center justify-between">
-              {/* Joueurs + couleur */}
+              {/* Joueurs + couleur + tour */}
               <div className="flex items-center gap-3 min-w-0">
                 {playersList ? (
                   <>
@@ -138,9 +139,25 @@ export default function NavBar() {
                 ) : (
                   <span className="opacity-80">Joueurs&nbsp;: —</span>
                 )}
+
                 {typeof color === "string" && (
                   <span className="text-xl" aria-label={`couleur ${color}`} title={`Couleur : ${color}`}>
                     {color === "white" ? "⚪" : "⚫"}
+                  </span>
+                )}
+
+                {/* Pastille de tour (affichée si on connaît turnColor et ma couleur) */}
+                {turnColor && color && (
+                  <span
+                    className={
+                      "ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
+                      (myTurn
+                        ? "bg-green-600/20 text-green-400 ring-1 ring-inset ring-green-600/40"
+                        : "bg-stone-600/20 text-stone-300 ring-1 ring-inset ring-stone-600/40")
+                    }
+                    title={myTurn ? "C'est votre tour" : "Tour de l'adversaire"}
+                  >
+                    {myTurn ? "À toi de jouer" : "Tour adverse"}
                   </span>
                 )}
               </div>
@@ -153,9 +170,7 @@ export default function NavBar() {
                       <span className="opacity-80">Room&nbsp;:</span>
                       <button
                         type="button"
-                        onClick={() => {
-                          handleCopyRoom();
-                        }}
+                        onClick={handleCopyRoom}
                         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleCopyRoom()}
                         className="underline underline-offset-2 break-all select-text cursor-pointer transition-colors duration-200 ease-in-out hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 px-0"
                         title="Cliquer pour copier (ou sélectionner pour copier)"

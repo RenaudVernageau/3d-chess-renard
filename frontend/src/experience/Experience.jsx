@@ -1,3 +1,4 @@
+// src/experience/Experience.jsx
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate } from "react-router-dom";
@@ -15,16 +16,22 @@ export default function Experience() {
 
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
+  const [turn, setTurn]   = useState("white"); // tour courant
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
-  // ⛔ on ne clear plus tout l'UI jeu à l'unmount (pour garder currentRoomId)
   // const clearGameUi = useGameUiStore((s) => s.clearGameUi);
+
+  // publie (turn,myTurn) vers la NavBar dès qu'on connaît
+  useEffect(() => {
+    if (!color || !turn) return;
+    setGameUi({ turnColor: turn, myTurn: color === turn });
+  }, [color, turn, setGameUi]);
 
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    // ✅ expose l'ID de room et l'état "en jeu"
+    // expose l'ID de room et l'état "en jeu"
     setGameUi({ currentRoomId: roomId, isInGame: true });
 
     // Rejoindre la room
@@ -41,8 +48,9 @@ export default function Experience() {
       setGameUi({ players: names });
     };
 
-    const handleRoomCreated = ({ players: createdPlayers, yourColor }) => {
+    const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
       publishPlayers(createdPlayers);
+      // couleur du joueur
       setColor((prev) => {
         if (yourColor) return yourColor;
         if (prev) return prev;
@@ -50,9 +58,12 @@ export default function Experience() {
         const isWhite = names[0] === user.username;
         return isWhite ? "white" : "black";
       });
+      // tour courant si dispo, sinon par défaut "white"
+      if (activeColor === "white" || activeColor === "black") setTurn(activeColor);
+      else setTurn("white");
     };
 
-    const handleRoomJoined = ({ players: joinedPlayers, yourColor }) => {
+    const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
       publishPlayers(joinedPlayers);
       setColor((prev) => {
         if (yourColor) return yourColor;
@@ -61,10 +72,19 @@ export default function Experience() {
         const isWhite = names[0] === user.username;
         return isWhite ? "white" : "black";
       });
+      if (activeColor === "white" || activeColor === "black") setTurn(activeColor);
+      else setTurn("white");
     };
 
     const handlePlayerUpdate = ({ players: updatedPlayers }) => {
       publishPlayers(updatedPlayers);
+    };
+
+    // Si le serveur émet explicitement le tour
+    const handleTurnUpdate = ({ activeColor }) => {
+      if (activeColor === "white" || activeColor === "black") {
+        setTurn(activeColor);
+      }
     };
 
     // Accepte { move, color } ou move direct
@@ -72,11 +92,14 @@ export default function Experience() {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
+      // bascule locale du tour (si le serveur n’émet pas turn_update)
+      setTurn((prev) => (prev === "white" ? "black" : "white"));
     };
 
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
+    on("turn_update", handleTurnUpdate);     // optionnel, si back l'envoie
     on("move_piece", handleMove);
 
     return () => {
@@ -85,15 +108,18 @@ export default function Experience() {
       off("room_created", handleRoomCreated);
       off("room_joined", handleRoomJoined);
       off("room_player_update", handlePlayerUpdate);
+      off("turn_update", handleTurnUpdate);
       off("move_piece", handleMove);
 
-      // ❌ ne plus clear tout le store (on garde currentRoomId pour "Resume game")
-      // clearGameUi();
-
-      // ✅ on sort seulement de l'état "en jeu" et on nettoie ce qui est volatile
+      // on quitte l'état "en jeu", mais on garde currentRoomId pour Resume Game
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
+
+  // Publie la couleur (pour l'icône ⚪/⚫ de la NavBar)
+  useEffect(() => {
+    if (color) setGameUi({ myColor: color });
+  }, [color, setGameUi]);
 
   // Rejoindre si l’onglet redevient visible (cas iOS/suspension)
   useEffect(() => {
@@ -106,11 +132,6 @@ export default function Experience() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [roomId, socket, emit, user?.username]);
-
-  // Publie la couleur dans le store (pour l'icône ⚪/⚫ de la NavBar)
-  useEffect(() => {
-    if (color) setGameUi({ myColor: color });
-  }, [color, setGameUi]);
 
   if (!roomId) return <Navigate to="/lobby" replace />;
 
