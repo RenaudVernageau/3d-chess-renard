@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { io } from "socket.io-client";
 import { useMessageStore } from "../store/useMessageStore";
+import { useGameUiStore } from "../store/useGameUiStore";
 
 function parseJwt(token) {
   try {
@@ -23,13 +24,39 @@ export default function useWebSocket(token) {
     const socket = io(import.meta.env.VITE_WS_URL || "http://localhost:4000", {
       auth: { token },
       transports: ["websocket"],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 4000,
     });
 
     socketRef.current = socket;
 
+    const rejoinIfNeeded = () => {
+      const state = useGameUiStore.getState();
+      const roomId = state.currentRoomId;
+      // username: essaye via localStorage (robuste après reload), sinon fallback
+      const username =
+        localStorage.getItem("username") ||
+        state.players?.[0] ||
+        "player";
+      if (roomId) {
+        console.log("[WS] 🔁 Rejoin room", roomId);
+        socket.emit("join_room", { roomId, username });
+      }
+    };
+
     socket.on("connect", () => {
       console.log("[WS] ✅ Connected to server");
       setConnected(true);
+      rejoinIfNeeded(); // rejoin sur toute (re)connexion
+    });
+
+    socket.on("reconnect", (attempt) => {
+      console.log("[WS] 🔗 Reconnected", attempt);
+      setConnected(true);
+      rejoinIfNeeded();
     });
 
     socket.on("disconnect", (reason) => {
@@ -58,9 +85,9 @@ export default function useWebSocket(token) {
 
     const myId = parseJwt(token)?.sub || "";
     const handleGlobalNewMessage = (msg) => {
-      // Laisse le store normaliser + incrémenter les non-lus si besoin
+      // Normalise + met à jour non-lus si nécessaire
       useMessageStore.getState().handleIncomingSocketMessage(msg, myId);
-      // feedback léger (facultatif)
+      // feedback léger si message d'une autre room que celle active
       const active = useMessageStore.getState().activeRoomId;
       const otherId = (msg?.from === myId) ? msg?.to : msg?.from;
       if (otherId && otherId !== active) {
@@ -74,6 +101,10 @@ export default function useWebSocket(token) {
     return () => {
       console.log("[WS] 🧹 Cleaning up socket connection");
       socket.off("message:new", handleGlobalNewMessage);
+      socket.off("connect");
+      socket.off("reconnect");
+      socket.off("disconnect");
+      socket.off("connect_error");
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;

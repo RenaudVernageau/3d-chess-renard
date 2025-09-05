@@ -1,4 +1,3 @@
-// src/experience/Experience.jsx
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate } from "react-router-dom";
@@ -19,7 +18,7 @@ export default function Experience() {
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
-  // ⛔ on ne clear plus tout l'UI jeu à l'unmount, pour garder currentRoomId visible dans la NavBar
+  // ⛔ on ne clear plus tout l'UI jeu à l'unmount (pour garder currentRoomId)
   // const clearGameUi = useGameUiStore((s) => s.clearGameUi);
 
   useEffect(() => {
@@ -95,6 +94,18 @@ export default function Experience() {
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
+
+  // Rejoindre si l’onglet redevient visible (cas iOS/suspension)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (roomId && socket) {
+        emit("join_room", { roomId, username: user.username });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [roomId, socket, emit, user?.username]);
 
   // Publie la couleur dans le store (pour l'icône ⚪/⚫ de la NavBar)
   useEffect(() => {
