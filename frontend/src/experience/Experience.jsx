@@ -17,21 +17,16 @@ export default function Experience() {
 
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
-  const [peerQuit, setPeerQuit] = useState(false); // ⬅️ adversaire a quitté
+  const [peerQuit, setPeerQuit] = useState(false);
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
-  // on garde clearGameUi commenté pour conserver currentRoomId tant qu'on n'a pas cliqué "Quitter"
-  // const clearGameUi = useGameUiStore((s) => s.clearGameUi);
 
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    // expose l'ID de room et l'état "en jeu"
+    // Expose l'ID et l'état "en jeu"
     setGameUi({ currentRoomId: roomId, isInGame: true });
-
-    // Rejoindre la room
-    emit("join_room", { roomId, username: user.username });
 
     const toNames = (arr) =>
       (Array.isArray(arr) ? arr : []).map((p) =>
@@ -77,18 +72,29 @@ export default function Experience() {
       boardRef.current?.applyMove(m);
     };
 
-    // ⬅️ l'adversaire a quitté : on affiche une popup et on quittera vers le menu
+    // Adversaire a quitté
     const handlePeerQuit = () => {
       setPeerQuit(true);
     };
 
+    // 1) Attacher les listeners AVANT d'émettre join_room
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
     on("move_piece", handleMove);
     on("room_peer_quit", handlePeerQuit);
 
+    // 2) Maintenant seulement, rejoindre la room
+    emit("join_room", { roomId, username: user.username });
+
+    // 3) File de sécu (facultatif) : redemander l'état si rien ne revient très vite
+    const safety = setTimeout(() => {
+      // Si ton serveur ignore cet event, aucun effet secondaire
+      emit("state_request", { roomId });
+    }, 800);
+
     return () => {
+      clearTimeout(safety);
       emit("leave_room", { roomId });
 
       off("room_created", handleRoomCreated);
@@ -97,7 +103,7 @@ export default function Experience() {
       off("move_piece", handleMove);
       off("room_peer_quit", handlePeerQuit);
 
-      // on garde currentRoomId pour le bouton "Resume game" si on change de page sans quitter
+      // On garde currentRoomId pour "Resume game" si on quitte la page sans quitter la partie
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
@@ -129,12 +135,9 @@ export default function Experience() {
     );
   }
 
-  // ⛳️ quitter volontairement : on informe le serveur, on nettoie le store et on retourne lobby
+  // Quitter volontairement
   const handleQuitGame = () => {
-    if (roomId) {
-      emit("room_quit", { roomId });
-    }
-    // Nettoie complètement l'état de partie (on ne veut plus "Resume game")
+    if (roomId) emit("room_quit", { roomId });
     setGameUi({
       currentRoomId: null,
       myColor: undefined,
@@ -155,7 +158,6 @@ export default function Experience() {
         <div className="flex justify-end gap-3">
           <button
             onClick={() => {
-              // on quitte nous aussi côté client
               setGameUi({
                 currentRoomId: null,
                 myColor: undefined,
@@ -173,7 +175,7 @@ export default function Experience() {
     </div>
   ) : null;
 
-  // Bouton "Quitter la partie" (overlay en haut à droite)
+  // Bouton "Quitter la partie"
   const quitButton = (
     <div className="absolute top-2 right-2 z-40">
       <button
