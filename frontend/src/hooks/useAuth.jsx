@@ -1,57 +1,77 @@
-// src/hooks/useAuth.js
-import { createContext, useContext, useState } from "react";
+// src/hooks/useAuth.jsx
+import { createContext, useContext, useEffect, useState } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const token    = localStorage.getItem("token");
-    const userId   = localStorage.getItem("userId");
-    const username = localStorage.getItem("username");
-    const email    = localStorage.getItem("email");
-    const avatar   = localStorage.getItem("avatar");
-    return token && userId && username
-      ? { userId, username, token, email, avatar }
-      : null;
-  });
+  const [user, setUser] = useState(null);  // { userId, username, token, email, avatar }
+  const [ready, setReady] = useState(false);
 
-  // Connexion : on stocke tout, y compris userId
+  // Réhydratation robuste au montage
+  useEffect(() => {
+    try {
+      const token    = localStorage.getItem("token");
+      const userId   = localStorage.getItem("userId");
+      const username = localStorage.getItem("username");
+      const email    = localStorage.getItem("email");
+      const avatar   = localStorage.getItem("avatar");
+
+      if (token && userId && username) {
+        setUser({ userId, username, token, email, avatar });
+      } else {
+        setUser(null);
+      }
+    } finally {
+      setReady(true);
+    }
+  }, []);
+
+  // Synchronisation multi-onglets (facultative mais safe)
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e) return;
+      if (["token", "userId", "username", "email", "avatar"].includes(e.key)) {
+        const token    = localStorage.getItem("token");
+        const userId   = localStorage.getItem("userId");
+        const username = localStorage.getItem("username");
+        const email    = localStorage.getItem("email");
+        const avatar   = localStorage.getItem("avatar");
+        if (token && userId && username) {
+          setUser({ userId, username, token, email, avatar });
+        } else {
+          setUser(null);
+        }
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Connexion
   const login = async ({ username, password }) => {
-    // Le back doit renvoyer { token, userId, email, avatar }
-    const { token, userId, email, avatar } = await apiLogin({
-      username,
-      password,
-    });
-
+    const { token, userId, email, avatar } = await apiLogin({ username, password });
     localStorage.setItem("token",    token);
     localStorage.setItem("userId",   userId);
     localStorage.setItem("username", username);
-    localStorage.setItem("email",    email);
-    localStorage.setItem("avatar",   avatar);
-
-    setUser({ userId, username, token, email, avatar });
-    return { userId, token };
+    localStorage.setItem("email",    email || "");
+    localStorage.setItem("avatar",   avatar || "");
+    const next = { userId, username, token, email, avatar };
+    setUser(next);
+    return next;
   };
 
-  // Inscription : idem si tu veux auto-login
+  // Inscription (auto-login)
   const register = async ({ username, email, password, avatar }) => {
-    // Doit renvoyer { userId, token, email, avatar }
-    const { userId, token, email: e, avatar: a } = await apiRegister({
-      username,
-      email,
-      password,
-      avatar,
-    });
-
+    const { userId, token, email: e, avatar: a } = await apiRegister({ username, email, password, avatar });
     localStorage.setItem("token",    token);
     localStorage.setItem("userId",   userId);
     localStorage.setItem("username", username);
-    localStorage.setItem("email",    e);
-    localStorage.setItem("avatar",   a);
-
-    setUser({ userId, username, token, email: e, avatar: a });
-    return { userId, token };
+    localStorage.setItem("email",    e || "");
+    localStorage.setItem("avatar",   a || "");
+    const next = { userId, username, token, email: e, avatar: a };
+    setUser(next);
+    return next;
   };
 
   const logout = () => {
@@ -63,8 +83,11 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const token = user?.token || null;
+  const isAuthenticated = !!token;
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, ready, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

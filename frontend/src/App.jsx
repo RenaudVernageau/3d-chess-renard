@@ -18,10 +18,25 @@ import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
-// PrivateRoute ne rend le composant que si l’utilisateur est authentifié
+// PrivateRoute attend la réhydratation puis vérifie l'auth
 function PrivateRoute({ children }) {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" replace />;
+  const auth = useAuth();
+  const ready =
+    typeof auth?.ready === "boolean" ? auth.ready : true; // compat au cas où
+  const isAuthenticated =
+    typeof auth?.isAuthenticated === "boolean"
+      ? auth.isAuthenticated
+      : !!auth?.user;
+
+  if (!ready) {
+    return (
+      <div className="p-4 text-center text-white bg-black">
+        Loading…
+      </div>
+    );
+  }
+
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -87,6 +102,7 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
           {/* Redirects */}
           <Route path="/play" element={<Navigate to="/lobby" replace />} />
           <Route path="/" element={<Navigate to="/lobby" replace />} />
