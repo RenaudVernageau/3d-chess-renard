@@ -73,8 +73,15 @@ export default function Experience() {
     };
 
     // Adversaire a quitté
-    const handlePeerQuit = () => {
-      setPeerQuit(true);
+    const handlePeerQuit = () => setPeerQuit(true);
+
+    // ⚠️ Gestion des erreurs serveur (ex: Room not found)
+    const handleServerError = (err) => {
+      const msg = typeof err === "string" ? err : err?.error;
+      if (msg === "Room not found") {
+        // ➜ on crée la room avec cet ID puis on rejoindra via room_created
+        emit("create_room_with_id", { roomId, username: user.username });
+      }
     };
 
     // 1) Attacher les listeners AVANT d'émettre join_room
@@ -83,15 +90,13 @@ export default function Experience() {
     on("room_player_update", handlePlayerUpdate);
     on("move_piece", handleMove);
     on("room_peer_quit", handlePeerQuit);
+    on("error", handleServerError);
 
     // 2) Maintenant seulement, rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
-    // 3) File de sécu (facultatif) : redemander l'état si rien ne revient très vite
-    const safety = setTimeout(() => {
-      // Si ton serveur ignore cet event, aucun effet secondaire
-      emit("state_request", { roomId });
-    }, 800);
+    // 3) Sécu : si rien ne revient, on peut demander un état (si le back supporte)
+    const safety = setTimeout(() => emit("state_request", { roomId }), 800);
 
     return () => {
       clearTimeout(safety);
@@ -102,8 +107,8 @@ export default function Experience() {
       off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
       off("room_peer_quit", handlePeerQuit);
+      off("error", handleServerError);
 
-      // On garde currentRoomId pour "Resume game" si on quitte la page sans quitter la partie
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);

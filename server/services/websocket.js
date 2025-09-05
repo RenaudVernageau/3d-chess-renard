@@ -113,6 +113,44 @@ function initWebsocket(server) {
       });
     });
 
+    // ✅ NOUVEAU — créer une room avec l’ID fourni (fallback quand join_room renvoie "Room not found")
+    socket.on("create_room_with_id", ({ roomId, username: uname }) => {
+      if (!roomId) return;
+      const room = ensureRoom(roomId);
+
+      if (!room.assignments[userId]) {
+        const color = pickNextColor(room.assignments);
+        room.assignments[userId] = color;
+        if (!room.players.some((p) => p.id === userId)) {
+          room.players.push({ id: userId, username: uname || username, color });
+        }
+      } else {
+        // S'il avait déjà une assignation, s'assurer qu'il est bien présent dans la liste
+        const color = room.assignments[userId];
+        if (!room.players.some((p) => p.id === userId)) {
+          room.players.push({ id: userId, username: uname || username, color });
+        }
+      }
+
+      socket.join(roomId);
+      socket.joinedGameRooms.add(roomId);
+
+      console.log(`[WS] room ${roomId} created/joined by ${username}`);
+
+      socket.emit("room_created", {
+        roomId,
+        players: room.players,
+        yourColor: room.assignments[userId] || "white",
+        activeColor: room.turn,
+      });
+
+      // informer les autres sockets déjà présents (s'il y en a)
+      socket.to(roomId).emit("room_player_update", {
+        roomId,
+        players: room.players,
+      });
+    });
+
     socket.on("join_room", ({ roomId }) => {
       const room = rooms[roomId];
       if (!room) return socket.emit("error", { error: "Room not found" });
