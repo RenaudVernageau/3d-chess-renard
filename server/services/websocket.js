@@ -12,13 +12,13 @@ function initWebsocket(server) {
     path: "/socket.io",
   });
 
-  // Auth WS
+  // --- Auth WS ---
   io.use((socket, next) => {
     const token = socket.handshake?.auth?.token;
     if (!token) return next(new Error("Missing or invalid token"));
     try {
       const payload = jwt.verify(token, JWT_SECRET);
-      socket.user = { id: payload.sub, username: payload.username };
+      socket.user = { id: String(payload.sub), username: payload.username };
       return next();
     } catch (err) {
       return next(new Error("Missing or invalid token"));
@@ -35,14 +35,15 @@ function initWebsocket(server) {
       return;
     }
 
+    // Track des rooms jeu rejointes par ce socket (pour cleanup à disconnect)
+    socket.joinedGameRooms = new Set();
+
     // Room perso pour la messagerie
     const userRoom = `user:${userId}`;
     socket.join(userRoom);
     console.log(`[WS] ${username} joined ${userRoom}`);
 
-    // ===== ROOMS (jeu) =====
-
-    // Helpers internes
+    // ===== Helpers Rooms (jeu) =====
     function ensureRoom(roomId) {
       if (!rooms[roomId]) {
         rooms[roomId] = {
@@ -50,7 +51,7 @@ function initWebsocket(server) {
           players: [],            // [{ id, username, color }]
           assignments: {},        // { [userId]: "white"|"black"|"spectator" }
           turn: "white",
-          state: null,
+          state: null,            // place-holder si tu ajoutes un FEN plus tard
           createdAt: Date.now(),
         };
       }
@@ -64,6 +65,32 @@ function initWebsocket(server) {
       return "spectator";
     }
 
+    function removePlayerFromRoom(room, uid) {
+      if (!room) return;
+      delete room.assignments[uid];
+      room.players = room.players.filter((p) => p.id !== uid);
+    }
+
+    function broadcastPlayers(roomId) {
+      const room = rooms[roomId];
+      if (!room) return;
+      io.to(roomId).emit("room_player_update", {
+        roomId,
+        players: room.players,
+      });
+    }
+
+    function cleanupRoomIfEmpty(roomId) {
+      const room = rooms[roomId];
+      if (!room) return;
+      if (room.players.length === 0) {
+        delete rooms[roomId];
+        console.log(`[WS] room ${roomId} deleted (empty)`);
+      }
+    }
+
+    // ===== ROOMS (jeu) =====
+
     socket.on("create_room", () => {
       const roomId = uuid();
       const room = ensureRoom(roomId);
@@ -75,11 +102,14 @@ function initWebsocket(server) {
       }
 
       socket.join(roomId);
+      socket.joinedGameRooms.add(roomId);
+
       console.log(`[WS] room created ${roomId} by ${username}`);
       socket.emit("room_created", {
         roomId,
         players: room.players,
         yourColor: room.assignments[userId] || "white",
+        activeColor: room.turn, // <— expose le tour
       });
     });
 
@@ -107,14 +137,17 @@ function initWebsocket(server) {
       }
 
       socket.join(roomId);
+      socket.joinedGameRooms.add(roomId);
+
       console.log(`[WS] ${username} joined game room ${roomId} as ${color}`);
 
-      // Notifie l'arrivant avec sa couleur et l'état de la room
+      // Notifie l'arrivant
       socket.emit("room_joined", {
         roomId,
         players: room.players,
         yourColor: color,
-        turn: room.turn,
+        activeColor: room.turn, // <— expose le tour
+        // fen: room.state?.fen, // si tu gères un moteur côté serveur plus tard
       });
 
       // Notifie les autres d'une mise à jour
@@ -124,6 +157,40 @@ function initWebsocket(server) {
       });
     });
 
+    // Option : quitter la room (sans “quitter la partie” pour l'autre)
+    socket.on("leave_room", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room) return;
+      removePlayerFromRoom(room, userId);
+      socket.leave(roomId);
+      socket.joinedGameRooms.delete(roomId);
+
+      console.log(`[WS] ${username} left room ${roomId}`);
+
+      broadcastPlayers(roomId);
+      cleanupRoomIfEmpty(roomId);
+    });
+
+    // Quitter la partie (et prévenir l’adversaire)
+    socket.on("room_quit", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room) return;
+
+      console.log(`[WS] ${username} quits game room ${roomId}`);
+
+      // informer l'autre joueur
+      socket.to(roomId).emit("room_peer_quit");
+
+      // retirer ce joueur de la room et quitter
+      removePlayerFromRoom(room, userId);
+      socket.leave(roomId);
+      socket.joinedGameRooms.delete(roomId);
+
+      broadcastPlayers(roomId);
+      cleanupRoomIfEmpty(roomId);
+    });
+
+    // Réception d'un coup
     socket.on("move_piece", ({ roomId, move, color }) => {
       const room = rooms[roomId];
       if (!room) {
@@ -132,10 +199,21 @@ function initWebsocket(server) {
       }
 
       // (Optionnel) faire respecter le tour
-      // if (room.turn !== color) return socket.emit("error", { error: "Not your turn" });
-      // room.turn = room.turn === "white" ? "black" : "white";
+      // if (room.turn !== color) {
+      //   return socket.emit("error", { error: "Not your turn" });
+      // }
 
-      socket.to(roomId).emit("move_piece", { move, color /*, turn: room.turn*/ });
+      // Bascule du tour serveur
+      room.turn = room.turn === "white" ? "black" : "white";
+
+      // Diffuse le coup aux autres
+      socket.to(roomId).emit("move_piece", { move, color });
+
+      // Diffuse la mise à jour de tour (aux deux côtés)
+      io.to(roomId).emit("turn_update", {
+        roomId,
+        activeColor: room.turn,
+      });
     });
 
     // ===== MESSAGERIE TEMPS RÉEL =====
@@ -182,8 +260,23 @@ function initWebsocket(server) {
       }
     });
 
+    // ===== Déconnexion socket =====
     socket.on("disconnect", (reason) => {
       console.log(`[WS] disconnect ${username} (${socket.id}) reason=${reason}`);
+
+      // Nettoyer toutes les rooms jeu où était ce socket
+      for (const roomId of socket.joinedGameRooms) {
+        const room = rooms[roomId];
+        if (!room) continue;
+
+        removePlayerFromRoom(room, userId);
+        // Option : prévenir l'autre qu'il est parti (décommente si tu veux)
+        // io.to(roomId).emit("room_peer_quit");
+
+        broadcastPlayers(roomId);
+        cleanupRoomIfEmpty(roomId);
+      }
+      socket.joinedGameRooms.clear();
     });
   });
 

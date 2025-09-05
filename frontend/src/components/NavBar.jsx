@@ -117,7 +117,7 @@ export default function NavBar() {
                 className="mt-1 w-fit rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 transition active:scale-95"
                 title="Revenir à la partie en cours"
               >
-                🎮 Resume game
+                🎮 Retourner à la partie
               </button>
             )}
           </div>
