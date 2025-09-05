@@ -18,14 +18,17 @@ export default function Experience() {
   const [color, setColor] = useState(null); // "white" | "black"
   const boardRef = useRef(null);
 
-  const setGameUi   = useGameUiStore((s) => s.setGameUi);
-  const clearGameUi = useGameUiStore((s) => s.clearGameUi);
+  const setGameUi = useGameUiStore((s) => s.setGameUi);
+  // ⛔ on ne clear plus tout l'UI jeu à l'unmount, pour garder currentRoomId visible dans la NavBar
+  // const clearGameUi = useGameUiStore((s) => s.clearGameUi);
 
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    setGameUi({ currentRoomId: roomId });
+    // ✅ expose l'ID de room et l'état "en jeu"
+    setGameUi({ currentRoomId: roomId, isInGame: true });
 
+    // Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
     const toNames = (arr) =>
@@ -36,7 +39,7 @@ export default function Experience() {
     const publishPlayers = (arr) => {
       const names = toNames(arr);
       setPlayers(arr);
-      setGameUi({ players: names }); // ✅ stocke les joueurs dans le store
+      setGameUi({ players: names });
     };
 
     const handleRoomCreated = ({ players: createdPlayers, yourColor }) => {
@@ -79,15 +82,21 @@ export default function Experience() {
 
     return () => {
       emit("leave_room", { roomId });
+
       off("room_created", handleRoomCreated);
       off("room_joined", handleRoomJoined);
       off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
-      clearGameUi();
-    };
-  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, clearGameUi]);
 
-  // Publie la couleur dans le store
+      // ❌ ne plus clear tout le store (on garde currentRoomId pour "Resume game")
+      // clearGameUi();
+
+      // ✅ on sort seulement de l'état "en jeu" et on nettoie ce qui est volatile
+      setGameUi({ isInGame: false, players: [], myColor: undefined });
+    };
+  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
+
+  // Publie la couleur dans le store (pour l'icône ⚪/⚫ de la NavBar)
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
