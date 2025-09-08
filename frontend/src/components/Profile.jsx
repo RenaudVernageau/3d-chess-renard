@@ -46,7 +46,8 @@ export function OwnProfile() {
 
     try {
       const payload = {};
-      if (hasUsernameChanged && username.trim()) payload.username = username.trim();
+      if (hasUsernameChanged && username.trim())
+        payload.username = username.trim();
       if (hasAvatarChanged) payload.avatar = avatar;
 
       if (Object.keys(payload).length === 0) {
@@ -91,7 +92,9 @@ export function OwnProfile() {
         {/* Avatar */}
         <div className="flex flex-col items-center mb-4">
           <img
-            src={avatar || "/default-avatar.jpg"}
+            src={
+              avatar && avatar.trim() !== "" ? avatar : "/default-avatar.jpg"
+            }
             alt="Avatar"
             className="w-20 h-20 rounded-full object-cover mb-2 ring-2 ring-stone-600"
           />
@@ -129,8 +132,14 @@ export function OwnProfile() {
           type="submit"
           disabled={loading || !hasChanges}
           className={`mt-4 w-full rounded-lg px-4 py-2 text-white transition
-            ${hasChanges ? "bg-blue-600 hover:bg-blue-700" : "bg-stone-700 cursor-not-allowed"}`}
-          title={hasChanges ? "Enregistrer les modifications" : "Aucune modification"}
+            ${
+              hasChanges
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-stone-700 cursor-not-allowed"
+            }`}
+          title={
+            hasChanges ? "Enregistrer les modifications" : "Aucune modification"
+          }
         >
           {loading ? "Mise à jour..." : "Mettre à jour"}
         </button>
