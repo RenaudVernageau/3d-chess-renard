@@ -6,7 +6,7 @@ import api from "../api";
 // --- helpers API locaux (évite la dépendance à ../api/users.js) ---
 async function updateMe(payload) {
   // adapte l’URL/méthode si ton backend diffère
-  return api("/users/me", { method: "PATCH", body: payload });
+  return api("/users/me", { method: "PUT", body: payload });
 }
 async function fetchUserById(userId) {
   return api(`/users/${userId}`, { method: "GET" });
