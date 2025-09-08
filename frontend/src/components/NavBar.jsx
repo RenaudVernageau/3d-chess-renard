@@ -38,14 +38,6 @@ export default function NavBar() {
     }
   };
 
-  const initials = (name) =>
-    (name || "")
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((x) => x[0]?.toUpperCase())
-      .join("") || "U";
-
   return (
     <header className="sticky top-0 z-40 w-full border-b border-stone-800 bg-stone-900/95 backdrop-blur supports-[backdrop-filter]:bg-stone-900/75">
       {/* Barre du haut */}
@@ -82,17 +74,11 @@ export default function NavBar() {
             </Link>
             <Link to="/users" className="hover:text-white">👥 Utilisateurs</Link>
             <Link to="/profile" className="group flex items-center gap-2 hover:text-white">
-              {avatar ? (
-                <img
-                  src={avatar}
-                  alt={username || "Profil"}
-                  className="w-7 h-7 rounded-full object-cover ring-1 ring-stone-600/60"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-stone-700 text-stone-200 grid place-items-center text-xs ring-1 ring-stone-600/60">
-                  {initials(username)}
-                </div>
-              )}
+              <img
+                src={avatar || "/default-avatar.jpg"}
+                alt={username || "Profil"}
+                className="w-7 h-7 rounded-full object-cover ring-1 ring-stone-600/60"
+              />
               <span className="hidden sm:inline">{username || "Mon profil"}</span>
             </Link>
           </nav>
@@ -116,17 +102,11 @@ export default function NavBar() {
               👥 Utilisateurs
             </Link>
             <Link to="/profile" className="px-1 hover:text-white flex items-center gap-2" onClick={() => setOpen(false)}>
-              {avatar ? (
-                <img
-                  src={avatar}
-                  alt={username || "Profil"}
-                  className="w-6 h-6 rounded-full object-cover ring-1 ring-stone-600/60"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-stone-700 text-stone-200 grid place-items-center text-[10px] ring-1 ring-stone-600/60">
-                  {initials(username)}
-                </div>
-              )}
+              <img
+                src={avatar || "/default-avatar.jpg"}
+                alt={username || "Profil"}
+                className="w-6 h-6 rounded-full object-cover ring-1 ring-stone-600/60"
+              />
               <span>{username || "Mon profil"}</span>
             </Link>
           </div>
