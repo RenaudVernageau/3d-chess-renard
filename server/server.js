@@ -76,11 +76,11 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // fichier
 /* -------------------------------
  * Routes API
  * ------------------------------- */
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/rooms", roomsRoutes);
-app.use("/api/notifications", notificationsRoutes);
-app.use("/api/messages", messageRoutes);
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+app.use("/rooms", roomsRoutes);
+app.use("/notifications", notificationsRoutes);
+app.use("/messages", messageRoutes);
 
 /* -------------------------------
  * HTTP + WebSocket
