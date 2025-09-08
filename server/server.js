@@ -65,7 +65,7 @@ app.use(
 );
 
 // Répondre explicitement aux preflights
-app.options("*", cors());
+// app.options("*", cors());
 
 /* -------------------------------
  * Middlewares
