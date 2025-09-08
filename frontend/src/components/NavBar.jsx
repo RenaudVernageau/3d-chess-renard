@@ -9,7 +9,7 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Auth (pour avatar/username)
+  // Auth
   const { user } = useAuth();
   const username = user?.username || "";
   const avatar = user?.avatar || user?.avatarUrl || "";
@@ -70,7 +70,7 @@ export default function NavBar() {
             </svg>
           </button>
 
-          {/* Liens desktop + badge non-lus + lien profil */}
+          {/* Liens desktop */}
           <nav className="hidden md:flex items-center gap-6 text-stone-200">
             <Link to="/messages" className="relative hover:text-white">
               💬 Messages
@@ -80,8 +80,7 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
-
-            {/* Lien profil (toujours visible) */}
+            <Link to="/users" className="hover:text-white">👥 Utilisateurs</Link>
             <Link to="/profile" className="group flex items-center gap-2 hover:text-white">
               {avatar ? (
                 <img
@@ -94,7 +93,7 @@ export default function NavBar() {
                   {initials(username)}
                 </div>
               )}
-              <span className="hidden sm:inline">Mon profil</span>
+              <span className="hidden sm:inline">{username || "Mon profil"}</span>
             </Link>
           </nav>
         </div>
@@ -113,8 +112,9 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
-
-            {/* Lien profil mobile */}
+            <Link to="/users" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
+              👥 Utilisateurs
+            </Link>
             <Link to="/profile" className="px-1 hover:text-white flex items-center gap-2" onClick={() => setOpen(false)}>
               {avatar ? (
                 <img
@@ -127,7 +127,7 @@ export default function NavBar() {
                   {initials(username)}
                 </div>
               )}
-              <span>Mon profil</span>
+              <span>{username || "Mon profil"}</span>
             </Link>
           </div>
         </div>
