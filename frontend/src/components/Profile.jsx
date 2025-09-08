@@ -1,11 +1,20 @@
 // src/components/Profile.jsx
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { updateProfile, getUserById } from "../api/users";
+import api from "../api";
+
+// --- helpers API locaux (évite la dépendance à ../api/users.js) ---
+async function updateMe(payload) {
+  // adapte l’URL/méthode si ton backend diffère
+  return api("/users/me", { method: "PATCH", body: payload });
+}
+async function fetchUserById(userId) {
+  return api(`/users/${userId}`, { method: "GET" });
+}
 
 // -------- Mon profil (utilisateur courant) --------
 export function OwnProfile() {
-  const { user, updateUser } = useAuth(); // <-- ajoute updateUser dans useAuth si pas déjà fait
+  const { user, updateUser } = useAuth(); // si updateUser n'existe pas, on tombera sur le fallback localStorage plus bas
   const initialUsername = user?.username || "";
   const initialAvatar = user?.avatar || user?.avatarUrl || "";
 
@@ -16,7 +25,7 @@ export function OwnProfile() {
   const [okMsg, setOkMsg] = useState("");
 
   const hasUsernameChanged = username.trim() !== initialUsername.trim();
-  const hasAvatarChanged = avatar && avatar !== initialAvatar;
+  const hasAvatarChanged = (avatar || "") !== (initialAvatar || "");
   const hasChanges = hasUsernameChanged || hasAvatarChanged;
 
   const handleAvatarChange = (e) => {
@@ -46,9 +55,9 @@ export function OwnProfile() {
         return;
       }
 
-      const updated = await updateProfile(payload);
+      const updated = await updateMe(payload);
 
-      // sync localStorage au minimum
+      // sync localStorage au minimum (pour NavBar & co)
       if (typeof updated?.username === "string") {
         localStorage.setItem("username", updated.username);
       }
@@ -56,7 +65,7 @@ export function OwnProfile() {
         localStorage.setItem("avatar", updated.avatar);
       }
 
-      // si tu as ajouté updateUser dans useAuth, propage au contexte
+      // propage au contexte Auth si disponible
       if (typeof updateUser === "function") {
         updateUser(updated);
       }
@@ -79,6 +88,7 @@ export function OwnProfile() {
       >
         <h2 className="text-xl font-bold mb-4 text-center">Mon profil</h2>
 
+        {/* Avatar */}
         <div className="flex flex-col items-center mb-4">
           <img
             src={avatar || "/default-avatar.jpg"}
@@ -96,6 +106,7 @@ export function OwnProfile() {
           </label>
         </div>
 
+        {/* Username (optionnel) */}
         <label className="block mb-2">
           <span className="text-sm text-stone-300">Nom d'utilisateur</span>
           <input
@@ -130,8 +141,6 @@ export function OwnProfile() {
 
 // -------- Profil d’un autre utilisateur (affichage) --------
 export function UserProfile({ id: propId }) {
-  const { user } = useAuth();
-  const userId = propId; // si tu passes l’id via la route, adapte en conséquence
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
 
@@ -139,7 +148,7 @@ export function UserProfile({ id: propId }) {
     let mounted = true;
     (async () => {
       try {
-        const res = await getUserById(userId);
+        const res = await fetchUserById(propId);
         if (mounted) setData(res);
       } catch (e) {
         console.error(e);
@@ -149,7 +158,7 @@ export function UserProfile({ id: propId }) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [propId]);
 
   if (err) {
     return (
