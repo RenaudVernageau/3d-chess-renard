@@ -1,10 +1,11 @@
-// src/components/Profile.jsx (partie OwnProfile)
-import React, { useState } from "react";
+// src/components/Profile.jsx
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { updateProfile } from "../api/users";
+import { updateProfile, getUserById } from "../api/users";
 
+// -------- Mon profil (utilisateur courant) --------
 export function OwnProfile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth(); // <-- ajoute updateUser dans useAuth si pas déjà fait
   const initialUsername = user?.username || "";
   const initialAvatar = user?.avatar || user?.avatarUrl || "";
 
@@ -47,7 +48,7 @@ export function OwnProfile() {
 
       const updated = await updateProfile(payload);
 
-      // ————— sync localStorage (pour NavBar, etc.)
+      // sync localStorage au minimum
       if (typeof updated?.username === "string") {
         localStorage.setItem("username", updated.username);
       }
@@ -55,7 +56,11 @@ export function OwnProfile() {
         localStorage.setItem("avatar", updated.avatar);
       }
 
-      // ————— feedback UI
+      // si tu as ajouté updateUser dans useAuth, propage au contexte
+      if (typeof updateUser === "function") {
+        updateUser(updated);
+      }
+
       setOkMsg("Profil mis à jour ✨");
     } catch (err) {
       console.error("Profile update error:", err);
@@ -74,7 +79,6 @@ export function OwnProfile() {
       >
         <h2 className="text-xl font-bold mb-4 text-center">Mon profil</h2>
 
-        {/* Avatar */}
         <div className="flex flex-col items-center mb-4">
           <img
             src={avatar || "/default-avatar.jpg"}
@@ -92,7 +96,6 @@ export function OwnProfile() {
           </label>
         </div>
 
-        {/* Username (optionnel) */}
         <label className="block mb-2">
           <span className="text-sm text-stone-300">Nom d'utilisateur</span>
           <input
@@ -108,7 +111,6 @@ export function OwnProfile() {
           />
         </label>
 
-        {/* Messages */}
         {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
         {okMsg && <p className="text-emerald-400 text-sm mb-2">{okMsg}</p>}
 
@@ -121,11 +123,61 @@ export function OwnProfile() {
         >
           {loading ? "Mise à jour..." : "Mettre à jour"}
         </button>
-
-        {/* Astuce pour forcer la NavBar à refléter l'avatar sans reload global :
-            on peut naviguer hors /profile et revenir, ou implémenter une méthode
-            'updateUser' dans useAuth pour propager les changements immédiatement. */}
       </form>
+    </div>
+  );
+}
+
+// -------- Profil d’un autre utilisateur (affichage) --------
+export function UserProfile({ id: propId }) {
+  const { user } = useAuth();
+  const userId = propId; // si tu passes l’id via la route, adapte en conséquence
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await getUserById(userId);
+        if (mounted) setData(res);
+      } catch (e) {
+        console.error(e);
+        if (mounted) setErr("Erreur lors du chargement");
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [userId]);
+
+  if (err) {
+    return (
+      <div className="flex items-center justify-center p-6 text-red-400">
+        {err}
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center p-6 text-stone-300">
+        Chargement…
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto p-6 bg-stone-900 border border-stone-700 rounded-xl text-stone-100">
+      <div className="flex flex-col items-center gap-3">
+        <img
+          src={data.avatar || "/default-avatar.jpg"}
+          alt={data.username}
+          className="w-24 h-24 rounded-full object-cover ring-2 ring-stone-600"
+        />
+        <h3 className="text-lg font-semibold">{data.username}</h3>
+        <p className="text-stone-400 text-sm">{data.email}</p>
+      </div>
     </div>
   );
 }
