@@ -1,8 +1,10 @@
 // server/server.js
 require("dotenv").config(); // 1) Charger .env dès le départ
 const path = require("path");
+
+// 2) Connexion à MongoDB
 const initDb = require("./services/db");
-initDb(); // 2) Connexion à MongoDB
+initDb();
 
 const express = require("express");
 const http = require("http");
@@ -11,52 +13,78 @@ const { json } = require("body-parser");
 const config = require("./config");
 const logger = require("./utils/logger");
 
-// Importer les routes
+// Routes
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const roomsRoutes = require("./routes/rooms");
 const notificationsRoutes = require("./routes/notifications");
-const messageRoutes = require('./routes/messages');
-// Initialisation WebSocket (rooms + notifications)
+const messageRoutes = require("./routes/messages");
+
+// WebSocket (rooms + notifications)
 const initWs = require("./services/websocket");
 
 const app = express();
 
-// --- CORS Middleware ---
+/* -------------------------------
+ * CORS
+ * ------------------------------- */
+const allowAllForNow = process.env.CORS_ALLOW_ALL === "true"; // utile pour débloquer si besoin
+
 const allowedOrigins = [];
-if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
-if (process.env.FRONTEND_URL_PREVIEW)
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL); // ex: https://3d-chess-renard.vercel.app
+if (process.env.FRONTEND_URL_PREVIEW) {
+  // ex: .vercel.app (on acceptera tous les sous-domaines vercel)
   allowedOrigins.push(process.env.FRONTEND_URL_PREVIEW);
+}
 // En dev, autoriser le front local Vite
-if (process.env.NODE_ENV !== "production")
+if (process.env.NODE_ENV !== "production") {
   allowedOrigins.push("http://localhost:5173");
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // ex: Postman, curl
+  return allowedOrigins.some((pat) => {
+    if (!pat) return false;
+    // autoriser wildcard vercel: ".vercel.app" -> origin se termine par ".vercel.app"
+    if (pat.startsWith(".")) return origin.endsWith(pat);
+    // autoriser "*.domain.tld"
+    if (pat.startsWith("*.")) return origin.endsWith(pat.slice(1));
+    // match exact
+    return origin === pat;
+  });
+}
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: allowAllForNow ? true : (origin, cb) => cb(null, isOriginAllowed(origin)),
     credentials: true,
+    // ✅ inclut PATCH et gère le preflight proprement
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// Gérer explicitement les preflights pour toutes les routes
+// Répondre explicitement aux preflights
 app.options("*", cors());
 
-// --- JSON Body Parsing ---
-app.use(json({ limit: "5mb" }));
+/* -------------------------------
+ * Middlewares
+ * ------------------------------- */
+app.use(json({ limit: "5mb" })); // utile pour avatars en base64
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // fichiers statiques (avatars, etc.)
 
-// --- Servir les fichiers uploadés (avatars, etc.) ---
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// --- Routes API ---
+/* -------------------------------
+ * Routes API
+ * ------------------------------- */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/messages", messageRoutes);
 
-// --- HTTP + WebSocket Server ---
+/* -------------------------------
+ * HTTP + WebSocket
+ * ------------------------------- */
 const server = http.createServer(app);
 initWs(server);
 
