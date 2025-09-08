@@ -6,21 +6,26 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
+  // 🔹 Tous les hooks en haut, dans le même ordre à chaque rendu
+  const { user } = useAuth();
+
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Auth
-  const { user } = useAuth();
-  const username = user?.username || "";
-  const avatar = user?.avatar || user?.avatarUrl || "";
-
-  // Store jeu
+  // Stores (ce sont aussi des hooks)
   const roomId  = useGameUiStore((s) => s.currentRoomId);
   const color   = useGameUiStore((s) => s.myColor);
   const players = useGameUiStore((s) => s.players) || [];
-
-  // Store messages
   const totalUnread = useMessageStore((s) => s.totalUnread());
+
+  // Guard après les hooks → OK pour l'eslint
+  if (!user) return null;
+
+  // Données utilisateur
+  const username = user?.username || "";
+  const avatarRaw = user?.avatar || user?.avatarUrl || "";
+  const avatar =
+    avatarRaw && String(avatarRaw).trim() !== "" ? avatarRaw : "/default-avatar.jpg";
 
   const playersList = (Array.isArray(players) ? players : [])
     .map((p) => (typeof p === "string" ? p : p?.username))
@@ -43,7 +48,7 @@ export default function NavBar() {
       {/* Barre du haut */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex h-14 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-semibold text-white">
+          <Link to="/lobby" className="flex items-center gap-2 font-semibold text-white">
             <span className="text-xl">Roi des jeux ♔</span>
           </Link>
 
@@ -75,7 +80,7 @@ export default function NavBar() {
             <Link to="/users" className="hover:text-white">👥 Utilisateurs</Link>
             <Link to="/profile" className="group flex items-center gap-2 hover:text-white">
               <img
-                src={avatar || "/default-avatar.jpg"}
+                src={avatar}
                 alt={username || "Profil"}
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-stone-600/60"
               />
@@ -103,7 +108,7 @@ export default function NavBar() {
             </Link>
             <Link to="/profile" className="px-1 hover:text-white flex items-center gap-2" onClick={() => setOpen(false)}>
               <img
-                src={avatar || "/default-avatar.jpg"}
+                src={avatar}
                 alt={username || "Profil"}
                 className="w-6 h-6 rounded-full object-cover ring-1 ring-stone-600/60"
               />
