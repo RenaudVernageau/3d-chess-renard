@@ -1,6 +1,6 @@
-// src/components/NavBar.jsx
+// frontend/src/components/NavBar.jsx
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // ✅ ajouté useNavigate
+import { Link, useNavigate } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
 import { useMessageStore } from "../store/useMessageStore";
 import { useAuth } from "../hooks/useAuth";
@@ -8,7 +8,7 @@ import { useAuth } from "../hooks/useAuth";
 export default function NavBar() {
   // 🔹 Tous les hooks en haut, dans le même ordre à chaque rendu
   const { user } = useAuth();
-  const navigate = useNavigate(); // ✅ hook de navigation
+  const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -46,8 +46,7 @@ export default function NavBar() {
 
   const handleResume = () => {
     if (!roomId) return;
-    // 🔁 Si ton routeur utilise /play/:roomId remplace par navigate(`/play/${roomId}`)
-    navigate(`/room/${roomId}`); // ✅ bouton "Resume game"
+    navigate(`/play/${roomId}`);
   };
 
   return (
@@ -147,7 +146,7 @@ export default function NavBar() {
                 )}
               </div>
 
-              {/* Room + copier + Resume */}
+              {/* Room + copier + Reprendre */}
               <div className="flex items-center gap-3">
                 {roomId && (
                   <>
@@ -174,7 +173,7 @@ export default function NavBar() {
                       {copied ? "✅" : "📋"}
                     </button>
 
-                    {/* ✅ Bouton Resume game */}
+                    {/* Bouton Reprendre la partie */}
                     <button
                       type="button"
                       onClick={handleResume}
@@ -182,7 +181,7 @@ export default function NavBar() {
                       title="Revenir à la partie en cours"
                       aria-label="Revenir à la partie en cours"
                     >
-                      ▶️ Resume game
+                      ▶️ Reprendre la partie
                     </button>
                   </>
                 )}

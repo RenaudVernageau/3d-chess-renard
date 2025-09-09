@@ -1,10 +1,13 @@
-// src/components/Login.jsx
+// frontend/src/components/Login.jsx
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || "/lobby";
+
   const { login } = useAuth();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
@@ -17,7 +20,7 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(form);
-      navigate("/lobby");
+      navigate(from, { replace: true });
     } catch {
       setError("Identifiants invalides");
     }

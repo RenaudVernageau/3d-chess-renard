@@ -1,10 +1,11 @@
-// src/App.jsx
+// frontend/src/App.jsx
 import React from "react";
 import {
   HashRouter as Router,
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
@@ -18,14 +19,12 @@ import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
-// PrivateRoute attend la réhydratation et check aussi localStorage
+// PrivateRoute attend la réhydratation et mémorise la destination
 function PrivateRoute({ children }) {
   const { ready, isAuthenticated } = useAuth();
-  const tokenInStorage = typeof window !== "undefined" && localStorage.getItem("token");
+  const location = useLocation();
 
-  // Tant qu'on n'a pas fini de réhydrater, si un token existe en storage,
-  // on affiche un petit loader (au lieu de rediriger trop vite).
-  if (!ready && tokenInStorage) {
+  if (!ready) {
     return (
       <div className="p-4 text-center text-white bg-black">
         Loading…
@@ -33,7 +32,9 @@ function PrivateRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  return isAuthenticated
+    ? children
+    : <Navigate to="/login" replace state={{ from: location }} />;
 }
 
 export default function App() {

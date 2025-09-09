@@ -1,4 +1,4 @@
-// src/hooks/useAuth.jsx
+// frontend/src/hooks/useAuth.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
 
@@ -50,26 +50,48 @@ export function AuthProvider({ children }) {
 
   // Connexion
   const login = async ({ username, password }) => {
-    const { token, userId, email, avatar } = await apiLogin({ username, password });
-    localStorage.setItem("token",    token);
-    localStorage.setItem("userId",   userId);
-    localStorage.setItem("username", username);
+    const result = await apiLogin({ username, password });
+    const {
+      token,
+      userId,
+      email,
+      avatar,
+      username: unameFromApi,
+    } = result || {};
+
+    const finalUsername = unameFromApi || username || "";
+
+    localStorage.setItem("token",    token || "");
+    localStorage.setItem("userId",   userId || "");
+    localStorage.setItem("username", finalUsername);
     localStorage.setItem("email",    email || "");
     localStorage.setItem("avatar",   avatar || "");
-    const next = { userId, username, token, email, avatar };
+
+    const next = { userId, username: finalUsername, token, email, avatar };
     setUser(next);
     return next;
   };
 
   // Inscription (auto-login)
   const register = async ({ username, email, password, avatar }) => {
-    const { userId, token, email: e, avatar: a } = await apiRegister({ username, email, password, avatar });
-    localStorage.setItem("token",    token);
-    localStorage.setItem("userId",   userId);
-    localStorage.setItem("username", username);
+    const result = await apiRegister({ username, email, password, avatar });
+    const {
+      token,
+      userId,
+      email: e,
+      avatar: a,
+      username: unameFromApi,
+    } = result || {};
+
+    const finalUsername = unameFromApi || username || "";
+
+    localStorage.setItem("token",    token || "");
+    localStorage.setItem("userId",   userId || "");
+    localStorage.setItem("username", finalUsername);
     localStorage.setItem("email",    e || "");
     localStorage.setItem("avatar",   a || "");
-    const next = { userId, username, token, email: e, avatar: a };
+
+    const next = { userId, username: finalUsername, token, email: e, avatar: a };
     setUser(next);
     return next;
   };
