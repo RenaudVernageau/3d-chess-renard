@@ -6,21 +6,23 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
+  // Auth / routing
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location?.pathname || "/";
   const onPlayRoute = pathname.startsWith("/play/");
 
+  // UI local
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Stores
-  const roomId    = useGameUiStore((s) => s.currentRoomId);
-  const color     = useGameUiStore((s) => s.myColor);
-  const turnColor = useGameUiStore((s) => s.turnColor);
-  const myTurn    = useGameUiStore((s) => s.myTurn);
-  const players   = useGameUiStore((s) => s.players) || [];
+  const roomId     = useGameUiStore((s) => s.currentRoomId);
+  const color      = useGameUiStore((s) => s.myColor);
+  const turnColor  = useGameUiStore((s) => s.turnColor);  // "white" | "black"
+  const myTurn     = useGameUiStore((s) => s.myTurn);     // boolean
+  const players    = useGameUiStore((s) => s.players) || [];
   const totalUnread = useMessageStore((s) => s.totalUnread());
 
   if (!user) return null;
@@ -30,6 +32,12 @@ export default function NavBar() {
   const avatarRaw = user?.avatar || user?.avatarUrl || "";
   const avatar =
     avatarRaw && String(avatarRaw).trim() !== "" ? avatarRaw : "/default-avatar.jpg";
+
+  // Liste joueurs (desktop)
+  const playersList = (Array.isArray(players) ? players : [])
+    .map((p) => (typeof p === "string" ? p : p?.username))
+    .filter(Boolean)
+    .join(", ");
 
   const handleCopyRoom = async () => {
     if (!roomId) return;
@@ -47,13 +55,7 @@ export default function NavBar() {
     navigate(`/play/${roomId}`);
   };
 
-  // Affichage joueurs
-  const playersList = (Array.isArray(players) ? players : [])
-    .map((p) => (typeof p === "string" ? p : p?.username))
-    .filter(Boolean)
-    .join(", ");
-
-  // Tour
+  // Helpers affichage tour (pastille douce)
   const Dot = ({ c }) => (
     <span aria-hidden className="text-base leading-none">
       {c === "white" ? "⚪" : "⚫"}
@@ -154,29 +156,35 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Barre du bas */}
+      {/* Barre du bas — bandeau compact et centré en mobile, étendu en desktop */}
       {roomId && (
-        <div className="w-full bg-black text-stone-100">
+        <div className="w-full py-2">
           <div className="mx-auto max-w-6xl px-3 sm:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2">
-              {/* Gauche : Tour (mobile & desktop) + Joueurs (desktop only) */}
+            <div
+              className="mx-auto max-w-sm sm:max-w-none rounded-xl bg-stone-900/90 border border-stone-700
+                         flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2"
+            >
+              {/* Gauche : pastille de tour (même message mobile & desktop) + joueurs (desktop only) */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                 <TurnPill />
                 {playersList && (
-                  <span className="hidden sm:inline text-sm text-stone-300 truncate max-w-[40vw]" title={playersList}>
+                  <span
+                    className="hidden sm:inline text-sm text-stone-300 truncate max-w-[40vw]"
+                    title={playersList}
+                  >
                     Joueurs : {playersList}
                   </span>
                 )}
               </div>
 
-              {/* Droite : Room + copier + Reprendre */}
+              {/* Droite : Room + copier + Reprendre (desktop) */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-between sm:justify-end">
                 <span className="opacity-80 text-sm sm:text-base shrink-0">Room :</span>
 
                 <button
                   type="button"
                   onClick={handleCopyRoom}
-                  className="truncate max-w-[56vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 px-0 text-sm sm:text-base"
+                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
                   title="Cliquer pour copier l'ID de la room"
                   aria-label="Copier l'ID de la room"
                 >
@@ -199,6 +207,7 @@ export default function NavBar() {
                     onClick={handleResume}
                     className="ml-1 hidden sm:inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-white/30"
                     title="Revenir à la partie en cours"
+                    aria-label="Revenir à la partie en cours"
                   >
                     ▶️ Reprendre
                   </button>
