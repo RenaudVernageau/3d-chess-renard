@@ -40,19 +40,15 @@ export default function Experience() {
     };
 
     // ——— Handlers ———
-
     const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
       publishPlayers(createdPlayers);
-
-      // Déterminer MA couleur (source prioritaire: yourColor)
       const names = toNames(createdPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
       const myColor = yourColor || fallback;
 
       setColor((prev) => prev || myColor);
-      setGameUi({ myColor: myColor });
+      setGameUi({ myColor });
 
-      // Initialiser l'indication de tour si fournie par le serveur
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
@@ -60,13 +56,12 @@ export default function Experience() {
 
     const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
       publishPlayers(joinedPlayers);
-
       const names = toNames(joinedPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
       const myColor = yourColor || fallback;
 
       setColor((prev) => prev || myColor);
-      setGameUi({ myColor: myColor });
+      setGameUi({ myColor });
 
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
@@ -77,22 +72,39 @@ export default function Experience() {
       publishPlayers(updatedPlayers);
     };
 
-    // Accepte { move, color } ou move direct (on NE toggle PAS le tour ici)
+    // Reçoit un coup d'un pair
     const handleMove = (payload) => {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
-      boardRef.current?.applyMove(m);
+      boardRef.current?.applyMove?.(m);
     };
 
-    // MAJ du tour côté serveur
+    // Mise à jour du tour envoyée par le serveur
     const handleTurnUpdate = ({ activeColor }) => {
       if (activeColor !== "white" && activeColor !== "black") return;
       const myColorNow = useGameUiStore.getState().myColor || color;
       setGameUi({ turnColor: activeColor, myTurn: myColorNow === activeColor });
     };
 
-    // Adversaire a quitté
+    // L'adversaire a quitté
     const handlePeerQuit = () => setPeerQuit(true);
+
+    // (Important) Synchronisation d'état à l'entrée / reload
+    const handleStateSync = ({ fen, moves } = {}) => {
+      // Si Board expose setFromFEN (idéal)
+      if (fen && boardRef.current?.setFromFEN) {
+        boardRef.current.setFromFEN(fen);
+        return;
+      }
+      // Sinon, on rejoue la liste de coups
+      if (Array.isArray(moves) && moves.length && boardRef.current?.applyMove) {
+        // Option: reset au setup de départ si Board propose reset()
+        boardRef.current?.reset?.();
+        for (const mv of moves) {
+          if (mv?.from && mv?.to) boardRef.current.applyMove(mv);
+        }
+      }
+    };
 
     // Gestion erreurs (fallback: créer la room si join_room échoue)
     const handleServerError = (err) => {
@@ -109,13 +121,14 @@ export default function Experience() {
     on("move_piece", handleMove);
     on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
+    on("state_sync", handleStateSync);
     on("error", handleServerError);
 
     // 2) Rejoindre la room
     emit("join_room", { roomId, username: user.username });
 
-    // 3) Sécu (si dispo côté back)
-    const safety = setTimeout(() => emit("state_request", { roomId }), 800);
+    // 3) Demander explicitement l'état (au cas où)
+    const safety = setTimeout(() => emit("state_request", { roomId }), 600);
 
     return () => {
       clearTimeout(safety);
@@ -127,9 +140,10 @@ export default function Experience() {
       off("move_piece", handleMove);
       off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
+      off("state_sync", handleStateSync);
       off("error", handleServerError);
 
-      // On garde currentRoomId pour "Resume game" si on quitte la page sans quitter la partie
+      // On garde currentRoomId pour "Reprendre la partie" si on quitte la page sans quitter la partie
       setGameUi({ isInGame: false, players: [], myColor: undefined });
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
@@ -145,7 +159,6 @@ export default function Experience() {
       if (document.visibilityState !== "visible") return;
       if (roomId && socket) {
         emit("join_room", { roomId, username: user.username });
-        // Optionnel: resync d'état si supporté
         emit("state_request", { roomId });
       }
     };

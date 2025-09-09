@@ -1,3 +1,4 @@
+// src/hooks/useWebSocket.js
 import { useEffect, useRef, useCallback, useState } from "react";
 import { io } from "socket.io-client";
 import { useMessageStore } from "../store/useMessageStore";
@@ -36,7 +37,6 @@ export default function useWebSocket(token) {
     const rejoinIfNeeded = () => {
       const state = useGameUiStore.getState();
       const roomId = state.currentRoomId;
-      // username: essaye via localStorage (robuste après reload), sinon fallback
       const username =
         localStorage.getItem("username") ||
         state.players?.[0] ||
@@ -44,13 +44,15 @@ export default function useWebSocket(token) {
       if (roomId) {
         console.log("[WS] 🔁 Rejoin room", roomId);
         socket.emit("join_room", { roomId, username });
+        // Demande proactive de l'état côté serveur si dispo
+        socket.emit("state_request", { roomId });
       }
     };
 
     socket.on("connect", () => {
       console.log("[WS] ✅ Connected to server");
       setConnected(true);
-      rejoinIfNeeded(); // rejoin sur toute (re)connexion
+      rejoinIfNeeded();
     });
 
     socket.on("reconnect", (attempt) => {
@@ -68,7 +70,7 @@ export default function useWebSocket(token) {
       console.error("[WS] 🚫 Connection error:", err.message);
     });
 
-    // 🔔 Écoute globale message:new (même hors page Chat)
+    // 🔔 Notifications messages
     const ping = typeof Audio !== "undefined" ? new Audio("/sounds/ping.mp3") : null;
     const playPing = () => { try { ping && ping.play(); } catch {} };
 
@@ -85,9 +87,7 @@ export default function useWebSocket(token) {
 
     const myId = parseJwt(token)?.sub || "";
     const handleGlobalNewMessage = (msg) => {
-      // Normalise + met à jour non-lus si nécessaire
       useMessageStore.getState().handleIncomingSocketMessage(msg, myId);
-      // feedback léger si message d'une autre room que celle active
       const active = useMessageStore.getState().activeRoomId;
       const otherId = (msg?.from === myId) ? msg?.to : msg?.from;
       if (otherId && otherId !== active) {
@@ -115,25 +115,25 @@ export default function useWebSocket(token) {
 
   const on = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🟢 Listening to event: "${event}"`);
+    console.log(`[WS] 🟢 on("${event}")`);
     socketRef.current.on(event, handler);
   }, []);
 
   const once = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🟡 Listening once to event: "${event}"`);
+    console.log(`[WS] 🟡 once("${event}")`);
     socketRef.current.once(event, handler);
   }, []);
 
   const off = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🔴 Stop listening to event: "${event}"`);
+    console.log(`[WS] 🔴 off("${event}")`);
     socketRef.current.off(event, handler);
   }, []);
 
   const emit = useCallback((event, payload, ack) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 📤 Emitting "${event}"`, payload);
+    console.log(`[WS] 📤 emit("${event}")`, payload);
     if (ack) {
       socketRef.current.emit(event, payload, ack);
     } else {
