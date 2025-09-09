@@ -20,8 +20,8 @@ export default function NavBar() {
   // Stores
   const roomId     = useGameUiStore((s) => s.currentRoomId);
   const color      = useGameUiStore((s) => s.myColor);
-  const turnColor  = useGameUiStore((s) => s.turnColor);  // "white" | "black"
-  const myTurn     = useGameUiStore((s) => s.myTurn);     // boolean
+  const turnColor  = useGameUiStore((s) => s.turnColor);
+  const myTurn     = useGameUiStore((s) => s.myTurn);
   const players    = useGameUiStore((s) => s.players) || [];
   const totalUnread = useMessageStore((s) => s.totalUnread());
 
@@ -55,7 +55,7 @@ export default function NavBar() {
     navigate(`/play/${roomId}`);
   };
 
-  // Helpers affichage tour (pastille douce)
+  // Helpers affichage tour
   const Dot = ({ c }) => (
     <span aria-hidden className="text-base leading-none">
       {c === "white" ? "⚪" : "⚫"}
@@ -73,7 +73,7 @@ export default function NavBar() {
     turnText ? (
       <span
         className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] sm:text-sm
-                   bg-stone-800/70 border border-stone-700 text-stone-100"
+                   bg-stone-800/70 border border-stone-700 text-stone-100 font-medium"
         aria-live="polite"
       >
         <Dot c={myTurn ? color || turnColor : resolvedTurn} />
@@ -156,20 +156,21 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Barre du bas — bandeau compact et centré en mobile, étendu en desktop */}
+      {/* Barre du bas */}
       {roomId && (
         <div className="w-full py-2">
           <div className="mx-auto max-w-6xl px-3 sm:px-6">
             <div
               className="mx-auto max-w-sm sm:max-w-none rounded-xl bg-stone-900/90 border border-stone-700
-                         flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2"
+                         flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2
+                         text-stone-100 text-base tracking-wide"
             >
-              {/* Gauche : pastille de tour (même message mobile & desktop) + joueurs (desktop only) */}
+              {/* Gauche : pastille + joueurs (desktop) */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                 <TurnPill />
                 {playersList && (
                   <span
-                    className="hidden sm:inline text-sm text-stone-300 truncate max-w-[40vw]"
+                    className="hidden sm:inline truncate max-w-[40vw] font-medium"
                     title={playersList}
                   >
                     Joueurs : {playersList}
@@ -177,16 +178,15 @@ export default function NavBar() {
                 )}
               </div>
 
-              {/* Droite : Room + copier + Reprendre (desktop) */}
+              {/* Droite : Room + copier + Reprendre */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-between sm:justify-end">
-                <span className="opacity-80 text-sm sm:text-base shrink-0">Room :</span>
+                <span className="opacity-80 shrink-0">Room :</span>
 
                 <button
                   type="button"
                   onClick={handleCopyRoom}
-                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30"
                   title="Cliquer pour copier l'ID de la room"
-                  aria-label="Copier l'ID de la room"
                 >
                   {roomId}
                 </button>
@@ -195,8 +195,6 @@ export default function NavBar() {
                   type="button"
                   onClick={handleCopyRoom}
                   className="shrink-0 inline-flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-                  title="Copier l'ID de la room"
-                  aria-live="polite"
                 >
                   {copied ? "✅" : "📋"}
                 </button>
@@ -206,8 +204,6 @@ export default function NavBar() {
                     type="button"
                     onClick={handleResume}
                     className="ml-1 hidden sm:inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-white/30"
-                    title="Revenir à la partie en cours"
-                    aria-label="Revenir à la partie en cours"
                   >
                     ▶️ Reprendre
                   </button>
