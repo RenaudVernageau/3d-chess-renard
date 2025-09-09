@@ -6,22 +6,21 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
-  // Auth / routing
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location?.pathname || "/";
   const onPlayRoute = pathname.startsWith("/play/");
 
-  // UI local
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Stores
   const roomId    = useGameUiStore((s) => s.currentRoomId);
   const color     = useGameUiStore((s) => s.myColor);
-  const turnColor = useGameUiStore((s) => s.turnColor);   // "white" | "black"
-  const myTurn    = useGameUiStore((s) => s.myTurn);      // boolean
+  const turnColor = useGameUiStore((s) => s.turnColor);
+  const myTurn    = useGameUiStore((s) => s.myTurn);
+  const players   = useGameUiStore((s) => s.players) || [];
   const totalUnread = useMessageStore((s) => s.totalUnread());
 
   if (!user) return null;
@@ -48,7 +47,13 @@ export default function NavBar() {
     navigate(`/play/${roomId}`);
   };
 
-  // Helpers affichage tour (pastille douce)
+  // Affichage joueurs
+  const playersList = (Array.isArray(players) ? players : [])
+    .map((p) => (typeof p === "string" ? p : p?.username))
+    .filter(Boolean)
+    .join(", ");
+
+  // Tour
   const Dot = ({ c }) => (
     <span aria-hidden className="text-base leading-none">
       {c === "white" ? "⚪" : "⚫"}
@@ -149,18 +154,22 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Barre du bas (infos partie) — même message mobile & desktop */}
+      {/* Barre du bas */}
       {roomId && (
         <div className="w-full bg-black text-stone-100">
           <div className="mx-auto max-w-6xl px-3 sm:px-6">
-            {/* Layout responsive : pile en mobile, rangée en desktop */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2">
-              {/* Bloc gauche : pastille de tour */}
-              <div className="flex items-center">
+              {/* Gauche : Tour (mobile & desktop) + Joueurs (desktop only) */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                 <TurnPill />
+                {playersList && (
+                  <span className="hidden sm:inline text-sm text-stone-300 truncate max-w-[40vw]" title={playersList}>
+                    Joueurs : {playersList}
+                  </span>
+                )}
               </div>
 
-              {/* Bloc droit : Room + copier + (desktop) Reprendre */}
+              {/* Droite : Room + copier + Reprendre */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-between sm:justify-end">
                 <span className="opacity-80 text-sm sm:text-base shrink-0">Room :</span>
 
@@ -184,16 +193,14 @@ export default function NavBar() {
                   {copied ? "✅" : "📋"}
                 </button>
 
-                {/* Reprendre — uniquement si pas déjà dans la room (desktop) */}
                 {!onPlayRoute && (
                   <button
                     type="button"
                     onClick={handleResume}
                     className="ml-1 hidden sm:inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-white/30"
                     title="Revenir à la partie en cours"
-                    aria-label="Revenir à la partie en cours"
                   >
-                    ▶️ Reprendre la partie
+                    ▶️ Reprendre
                   </button>
                 )}
               </div>
