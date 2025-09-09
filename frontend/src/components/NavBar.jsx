@@ -6,20 +6,28 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
+  // Auth / routing
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const pathname = location?.pathname || "/";
+  const onPlayRoute = pathname.startsWith("/play/");
 
+  // UI local
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const roomId  = useGameUiStore((s) => s.currentRoomId);
-  const color   = useGameUiStore((s) => s.myColor);
-  const players = useGameUiStore((s) => s.players) || [];
+  // Stores
+  const roomId    = useGameUiStore((s) => s.currentRoomId);
+  const color     = useGameUiStore((s) => s.myColor);
+  const players   = useGameUiStore((s) => s.players) || [];
+  const turnColor = useGameUiStore((s) => s.turnColor);   // "white" | "black"
+  const myTurn    = useGameUiStore((s) => s.myTurn);      // boolean
   const totalUnread = useMessageStore((s) => s.totalUnread());
 
   if (!user) return null;
 
+  // Données utilisateur
   const username = user?.username || "";
   const avatarRaw = user?.avatar || user?.avatarUrl || "";
   const avatar =
@@ -46,8 +54,15 @@ export default function NavBar() {
     navigate(`/play/${roomId}`);
   };
 
-  const pathname = location?.pathname || "/";
-  const onPlayRoute = pathname.startsWith("/play/");
+  // Helpers affichage tour
+  const Dot = ({ c }) => (
+    <span aria-hidden className="text-lg">{c === "white" ? "⚪" : "⚫"}</span>
+  );
+  const turnLabel = myTurn
+    ? "À toi de jouer"
+    : turnColor === "white" || turnColor === "black"
+      ? `Au tour des ${turnColor === "white" ? "blancs" : "noirs"}`
+      : "";
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-stone-800 bg-stone-900/95 backdrop-blur supports-[backdrop-filter]:bg-stone-900/75">
@@ -125,10 +140,57 @@ export default function NavBar() {
       </div>
 
       {/* Barre du bas (infos partie) */}
-      {(playersList || roomId) && (
+      {(roomId || playersList) && (
         <div className="w-full bg-black text-stone-100">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="flex h-10 items-center justify-between">
+            {/* ---- Vue MOBILE: Room + Tour seulement ---- */}
+            <div className="flex sm:hidden flex-col gap-1 py-2 text-sm">
+              {/* Ligne Room */}
+              {roomId && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="opacity-80">Room :</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyRoom}
+                    className="truncate max-w-[58vw] underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30 px-0"
+                    title="Cliquer pour copier l'ID de la room"
+                    aria-label="Copier l'ID de la room"
+                  >
+                    {roomId}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyRoom}
+                    className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                    title="Copier l'ID de la room"
+                    aria-live="polite"
+                  >
+                    {copied ? "✅" : "📋"}
+                  </button>
+                </div>
+              )}
+
+              {/* Ligne Tour */}
+              {(turnColor || typeof myTurn === "boolean") && (
+                <div className="flex items-center gap-2">
+                  {myTurn ? (
+                    <>
+                      <span className="font-medium">À toi de jouer</span>
+                      <Dot c={color || turnColor} />
+                    </>
+                  ) : (
+                    <>
+                      <span className="opacity-80">Tour :</span>
+                      <span className="font-medium">{turnLabel}</span>
+                      <Dot c={turnColor || color} />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ---- Vue DESKTOP: joueurs + couleur + room + resume ---- */}
+            <div className="hidden sm:flex h-10 items-center justify-between">
               {/* Joueurs + couleur */}
               <div className="flex items-center gap-3 min-w-0">
                 {playersList ? (
@@ -139,14 +201,16 @@ export default function NavBar() {
                 ) : (
                   <span className="opacity-80">Joueurs&nbsp;: —</span>
                 )}
-                {typeof color === "string" && (
-                  <span className="text-xl" aria-label={`couleur ${color}`} title={`Couleur : ${color}`}>
-                    {color === "white" ? "⚪" : "⚫"}
+                {typeof color === "string" && <Dot c={color} />}
+
+                {(turnColor || typeof myTurn === "boolean") && (
+                  <span className="ml-2 text-sm opacity-90">
+                    {myTurn ? "À toi de jouer" : `Tour : ${turnColor === "white" ? "blancs" : "noirs"}`}
                   </span>
                 )}
               </div>
 
-              {/* Room + copier + reprendre */}
+              {/* Room + copier + Reprendre (pas sur /play) */}
               <div className="flex items-center gap-3">
                 {roomId && (
                   <>
@@ -171,12 +235,13 @@ export default function NavBar() {
                       {copied ? "✅" : "📋"}
                     </button>
 
-                    {/* Reprendre uniquement si pas déjà dans la room */}
                     {!onPlayRoute && (
                       <button
                         type="button"
                         onClick={handleResume}
                         className="ml-2 inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-white/30"
+                        title="Revenir à la partie en cours"
+                        aria-label="Revenir à la partie en cours"
                       >
                         ▶️ Reprendre la partie
                       </button>

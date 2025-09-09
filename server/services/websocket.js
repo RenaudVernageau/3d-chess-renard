@@ -25,6 +25,54 @@ function initWebsocket(server) {
     }
   });
 
+  // ====== Helpers État de partie ======
+  function ensureRoom(roomId) {
+    if (!rooms[roomId]) {
+      rooms[roomId] = {
+        id: roomId,
+        players: [],            // [{ id, username, color }]
+        assignments: {},        // { [userId]: "white"|"black"|"spectator" }
+        turn: "white",
+        state: { fen: null, moves: [] }, // ✅ état minimal en mémoire
+        createdAt: Date.now(),
+      };
+    } else if (!rooms[roomId].state) {
+      rooms[roomId].state = { fen: null, moves: [] };
+    }
+    return rooms[roomId];
+  }
+
+  function pickNextColor(assignments) {
+    const colors = Object.values(assignments);
+    if (!colors.includes("white")) return "white";
+    if (!colors.includes("black")) return "black";
+    return "spectator";
+  }
+
+  function removePlayerFromRoom(room, uid) {
+    if (!room) return;
+    delete room.assignments[uid];
+    room.players = room.players.filter((p) => p.id !== uid);
+  }
+
+  function broadcastPlayers(roomId) {
+    const room = rooms[roomId];
+    if (!room) return;
+    io.to(roomId).emit("room_player_update", {
+      roomId,
+      players: room.players,
+    });
+  }
+
+  function cleanupRoomIfEmpty(roomId) {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (room.players.length === 0) {
+      delete rooms[roomId];
+      console.log(`[WS] room ${roomId} deleted (empty)`);
+    }
+  }
+
   io.on("connection", (socket) => {
     const userId = socket.user?.id;
     const username = socket.user?.username;
@@ -43,59 +91,12 @@ function initWebsocket(server) {
     socket.join(userRoom);
     console.log(`[WS] ${username} joined ${userRoom}`);
 
-    // ===== Helpers Rooms (jeu) =====
-    function ensureRoom(roomId) {
-      if (!rooms[roomId]) {
-        rooms[roomId] = {
-          id: roomId,
-          players: [],            // [{ id, username, color }]
-          assignments: {},        // { [userId]: "white"|"black"|"spectator" }
-          turn: "white",
-          state: null,            // place-holder si tu ajoutes un FEN plus tard
-          createdAt: Date.now(),
-        };
-      }
-      return rooms[roomId];
-    }
-
-    function pickNextColor(assignments) {
-      const colors = Object.values(assignments);
-      if (!colors.includes("white")) return "white";
-      if (!colors.includes("black")) return "black";
-      return "spectator";
-    }
-
-    function removePlayerFromRoom(room, uid) {
-      if (!room) return;
-      delete room.assignments[uid];
-      room.players = room.players.filter((p) => p.id !== uid);
-    }
-
-    function broadcastPlayers(roomId) {
-      const room = rooms[roomId];
-      if (!room) return;
-      io.to(roomId).emit("room_player_update", {
-        roomId,
-        players: room.players,
-      });
-    }
-
-    function cleanupRoomIfEmpty(roomId) {
-      const room = rooms[roomId];
-      if (!room) return;
-      if (room.players.length === 0) {
-        delete rooms[roomId];
-        console.log(`[WS] room ${roomId} deleted (empty)`);
-      }
-    }
-
     // ===== ROOMS (jeu) =====
 
     socket.on("create_room", () => {
       const roomId = uuid();
       const room = ensureRoom(roomId);
 
-      // Créateur = white (si pas déjà assigné)
       if (!room.assignments[userId]) {
         room.assignments[userId] = "white";
         room.players.push({ id: userId, username, color: "white" });
@@ -109,11 +110,14 @@ function initWebsocket(server) {
         roomId,
         players: room.players,
         yourColor: room.assignments[userId] || "white",
-        activeColor: room.turn, // <— expose le tour
+        activeColor: room.turn,
       });
+
+      // ✅ Envoie l'état initial (vide) au créateur
+      socket.emit("state_sync", room.state);
     });
 
-    // ✅ NOUVEAU — créer une room avec l’ID fourni (fallback quand join_room renvoie "Room not found")
+    // Créer une room avec un ID donné (fallback)
     socket.on("create_room_with_id", ({ roomId, username: uname }) => {
       if (!roomId) return;
       const room = ensureRoom(roomId);
@@ -125,7 +129,6 @@ function initWebsocket(server) {
           room.players.push({ id: userId, username: uname || username, color });
         }
       } else {
-        // S'il avait déjà une assignation, s'assurer qu'il est bien présent dans la liste
         const color = room.assignments[userId];
         if (!room.players.some((p) => p.id === userId)) {
           room.players.push({ id: userId, username: uname || username, color });
@@ -144,7 +147,7 @@ function initWebsocket(server) {
         activeColor: room.turn,
       });
 
-      // informer les autres sockets déjà présents (s'il y en a)
+      socket.emit("state_sync", room.state); // ✅ état au créateur/joiner
       socket.to(roomId).emit("room_player_update", {
         roomId,
         players: room.players,
@@ -152,8 +155,7 @@ function initWebsocket(server) {
     });
 
     socket.on("join_room", ({ roomId }) => {
-      const room = rooms[roomId];
-      if (!room) return socket.emit("error", { error: "Room not found" });
+      const room = ensureRoom(roomId);
 
       // Si le joueur a déjà une couleur, on la garde
       let color = room.assignments[userId];
@@ -184,15 +186,27 @@ function initWebsocket(server) {
         roomId,
         players: room.players,
         yourColor: color,
-        activeColor: room.turn, // <— expose le tour
-        // fen: room.state?.fen, // si tu gères un moteur côté serveur plus tard
+        activeColor: room.turn,
       });
+
+      // ✅ Envoie l'état courant pour resync (reload/entrée tardive)
+      socket.emit("state_sync", room.state);
 
       // Notifie les autres d'une mise à jour
       socket.to(roomId).emit("room_player_update", {
         roomId,
         players: room.players,
       });
+    });
+
+    // Le client peut demander explicitement l'état (ex: après reconnect)
+    socket.on("state_request", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room) {
+        console.warn(`[WS] state_request: room not found ${roomId}`);
+        return socket.emit("state_sync", { fen: null, moves: [] });
+      }
+      socket.emit("state_sync", room.state || { fen: null, moves: [] });
     });
 
     // Option : quitter la room (sans “quitter la partie” pour l'autre)
@@ -216,10 +230,8 @@ function initWebsocket(server) {
 
       console.log(`[WS] ${username} quits game room ${roomId}`);
 
-      // informer l'autre joueur
       socket.to(roomId).emit("room_peer_quit");
 
-      // retirer ce joueur de la room et quitter
       removePlayerFromRoom(room, userId);
       socket.leave(roomId);
       socket.joinedGameRooms.delete(roomId);
@@ -229,23 +241,37 @@ function initWebsocket(server) {
     });
 
     // Réception d'un coup
-    socket.on("move_piece", ({ roomId, move, color }) => {
+    // payload attendu: { roomId, move: {from,to, ...}, color, nextFen? }
+    socket.on("move_piece", ({ roomId, move, color, nextFen }) => {
       const room = rooms[roomId];
       if (!room) {
         console.warn(`[WS] move_piece: room not found ${roomId}`);
         return socket.emit("error", { error: "Room not found" });
       }
 
-      // (Optionnel) faire respecter le tour
+      // (Optionnel) appliquer une règle de tour serveur
       // if (room.turn !== color) {
       //   return socket.emit("error", { error: "Not your turn" });
       // }
 
-      // Bascule du tour serveur
+      // ✅ Persister l'état minimal
+      try {
+        if (!room.state) room.state = { fen: null, moves: [] };
+        if (move && move.from && move.to) {
+          room.state.moves.push(move);
+        }
+        if (typeof nextFen === "string" && nextFen.trim().length) {
+          room.state.fen = nextFen;
+        }
+      } catch (e) {
+        console.error("[WS] move_piece state persist error:", e);
+      }
+
+      // Bascule du tour serveur (si tu relies au moteur, remplace par la vraie couleur active)
       room.turn = room.turn === "white" ? "black" : "white";
 
       // Diffuse le coup aux autres
-      socket.to(roomId).emit("move_piece", { move, color });
+      socket.to(roomId).emit("move_piece", { move, color, nextFen: room.state.fen || null });
 
       // Diffuse la mise à jour de tour (aux deux côtés)
       io.to(roomId).emit("turn_update", {
@@ -262,10 +288,8 @@ function initWebsocket(server) {
         const text = String(payload?.text || "").trim();
         if (!to || !text) throw new Error("Invalid payload");
 
-        // 1) Sauvegarde en DB
         const doc = await Message.create({ from: userId, to, text });
 
-        // 2) Infos utilisateurs (pour enrichir les convos)
         const [fromUser, toUser] = await Promise.all([
           User.findById(userId).select("username avatarUrl email").lean(),
           User.findById(to).select("username avatarUrl email").lean(),
@@ -286,11 +310,9 @@ function initWebsocket(server) {
           toAvatar: toUser?.avatarUrl || "",
         };
 
-        // 3) Diffusion temps réel
         io.to(`user:${to}`).emit("message:new", msg);
         io.to(userRoom).emit("message:new", msg);
 
-        // 4) Ack pour le client émetteur
         ack?.({ ok: true, msg });
       } catch (err) {
         console.error("[WS] message:send error:", err);
@@ -302,15 +324,11 @@ function initWebsocket(server) {
     socket.on("disconnect", (reason) => {
       console.log(`[WS] disconnect ${username} (${socket.id}) reason=${reason}`);
 
-      // Nettoyer toutes les rooms jeu où était ce socket
       for (const roomId of socket.joinedGameRooms) {
         const room = rooms[roomId];
         if (!room) continue;
 
         removePlayerFromRoom(room, userId);
-        // Option : prévenir l'autre qu'il est parti (décommente si tu veux)
-        // io.to(roomId).emit("room_peer_quit");
-
         broadcastPlayers(roomId);
         cleanupRoomIfEmpty(roomId);
       }
