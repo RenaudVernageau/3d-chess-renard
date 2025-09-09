@@ -1,89 +1,133 @@
-// server/controllers/userController.js
 const User = require('../models/User');
 
-/**
- * GET /api/users
- * Renvoie la liste de tous les utilisateurs (sans données sensibles)
- */
+/* ---------- helpers ---------- */
+function toPublicUser(u) {
+  if (!u) return null;
+  const id = String(u._id || u.id);
+  const avatar = u.avatar || u.avatarUrl || '';
+  return {
+    id,
+    username: u.username,
+    email: u.email,
+    avatar,
+    createdAt: u.createdAt,
+  };
+}
+
+/* ========== GET /users ========== */
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
-      .select('username email avatarUrl createdAt')
-      .sort({ username: 1 });
-    res.json(users);
+      .select('username email avatar avatarUrl createdAt')
+      .sort({ username: 1 })
+      .lean();
+
+    res.json(users.map(toPublicUser));
   } catch (err) {
     console.error('getAllUsers error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * GET /api/users/:id
- * Renvoie un utilisateur par son ID (profil complet)
- */
+/* ========== GET /users/:id ========== */
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select('-passwordHash')
-      .populate('friends', 'username avatarUrl')
-      .populate('friendRequests.from', 'username avatarUrl');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
+      .select('-passwordHash username email avatar avatarUrl createdAt')
+      .populate('friends', 'username avatar avatarUrl')
+      .populate('friendRequests.from', 'username avatar avatarUrl')
+      .lean();
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(toPublicUser(user));
   } catch (err) {
     console.error('getUserById error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * PUT /api/users/:id
- * Met à jour le profil de l'utilisateur authentifié (username & avatarUrl)
- */
-exports.updateUser = async (req, res) => {
-  const authUserId = req.user.id;
-  const { id } = req.params;
-  if (authUserId !== id) {
-    return res.status(403).json({ message: 'Forbidden' });
-  }
-
-  const { username, avatarUrl } = req.body;
+/* ---------- facteur commun de mise à jour ---------- */
+async function applyUserUpdates({ targetUserId, body }) {
   const updates = {};
-
-  if (username) {
-    const exists = await User.findOne({ username });
-    if (exists && exists._id.toString() !== id) {
-      return res.status(409).json({ message: 'Username already in use' });
+  // username
+  if (typeof body.username === 'string' && body.username.trim()) {
+    const username = body.username.trim();
+    const exists = await User.findOne({ username }).lean();
+    if (exists && String(exists._id) !== String(targetUserId)) {
+      const e = new Error('Username already in use');
+      e.code = 409;
+      throw e;
     }
     updates.username = username;
   }
-  if (avatarUrl) updates.avatarUrl = avatarUrl;
+  // avatar: on accepte "avatar" (nouveau) ou "avatarUrl" (legacy)
+  if (typeof body.avatar === 'string') updates.avatar = body.avatar;
+  if (typeof body.avatarUrl === 'string') updates.avatar = body.avatarUrl;
 
+  if (Object.keys(updates).length === 0) {
+    const e = new Error('No changes');
+    e.code = 400;
+    throw e;
+  }
+
+  const user = await User.findByIdAndUpdate(
+    targetUserId,
+    updates,
+    { new: true, runValidators: true, context: 'query' }
+  ).select('username email avatar avatarUrl createdAt');
+
+  if (!user) {
+    const e = new Error('User not found');
+    e.code = 404;
+    throw e;
+  }
+  return user;
+}
+
+/* ========== PUT /users/me ========== */
+exports.updateMe = async (req, res) => {
   try {
-    const userUpdated = await User.findByIdAndUpdate(
-      id,
-      updates,
-      { new: true, runValidators: true, context: 'query' }
-    ).select('username email avatarUrl createdAt');
-    if (!userUpdated) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(userUpdated);
+    const authUserId = req.user?.id;
+    if (!authUserId) return res.status(401).json({ message: 'Not authenticated' });
+
+    const updated = await applyUserUpdates({ targetUserId: authUserId, body: req.body });
+    return res.json(toPublicUser(updated));
   } catch (err) {
-    console.error('updateUser error:', err);
-    res.status(500).json({ message: 'Server error' });
+    const status = err.code || 500;
+    if (status !== 500) {
+      return res.status(status).json({ message: err.message });
+    }
+    console.error('updateMe error:', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
-/**
- * DELETE /api/users/:id
- * Supprime le compte de l'utilisateur authentifié
- */
+/* ========== PUT /users/:id ========== */
+exports.updateUser = async (req, res) => {
+  try {
+    const authUserId = req.user?.id;
+    const { id } = req.params;
+    if (!authUserId || String(authUserId) !== String(id)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updated = await applyUserUpdates({ targetUserId: id, body: req.body });
+    return res.json(toPublicUser(updated));
+  } catch (err) {
+    const status = err.code || 500;
+    if (status !== 500) {
+      return res.status(status).json({ message: err.message });
+    }
+    console.error('updateUser error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* ========== DELETE /users/:id ========== */
 exports.deleteUser = async (req, res) => {
-  const authUserId = req.user.id;
+  const authUserId = req.user?.id;
   const { id } = req.params;
-  if (authUserId !== id) {
+  if (!authUserId || String(authUserId) !== String(id)) {
     return res.status(403).json({ message: 'Forbidden' });
   }
   try {
@@ -95,31 +139,23 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-/**
- * POST /api/users/:id/friend-request
- * Envoie une demande d'ami vers l'utilisateur ciblé
- */
+/* ========== POST /users/:id/friend-request ========== */
 exports.sendFriendRequest = async (req, res) => {
-  const fromId = req.user.id;
+  const fromId = req.user?.id;
   const toId = req.params.id;
-  if (fromId === toId) {
+  if (String(fromId) === String(toId)) {
     return res.status(400).json({ message: 'Cannot friend yourself' });
   }
   try {
     const target = await User.findById(toId);
-    if (!target) {
-      return res.status(404).json({ message: 'Target user not found' });
-    }
-    const alreadyFriends = target.friends.includes(fromId);
-    const existingRequest = target.friendRequests.some(
-      fr => fr.from.toString() === fromId
-    );
+    if (!target) return res.status(404).json({ message: 'Target user not found' });
+
+    const alreadyFriends = target.friends.map(String).includes(String(fromId));
+    const existingRequest = target.friendRequests.some(fr => String(fr.from) === String(fromId));
     if (alreadyFriends || existingRequest) {
       return res.status(409).json({ message: 'Already friends or request pending' });
     }
-    await User.findByIdAndUpdate(toId, {
-      $push: { friendRequests: { from: fromId } }
-    });
+    await User.findByIdAndUpdate(toId, { $push: { friendRequests: { from: fromId } } });
     res.status(201).json({ message: 'Friend request sent' });
   } catch (err) {
     console.error('sendFriendRequest error:', err);
@@ -127,27 +163,24 @@ exports.sendFriendRequest = async (req, res) => {
   }
 };
 
-/**
- * POST /api/users/:id/friend-request/respond
- * Répond à une demande d'ami (accept/reject)
- */
+/* ========== POST /users/:id/friend-request/respond ========== */
 exports.respondFriendRequest = async (req, res) => {
-  const authUserId = req.user.id;
+  const authUserId = req.user?.id;
   const { id } = req.params;
   const { fromId, accept } = req.body;
-  if (authUserId !== id) {
+  if (!authUserId || String(authUserId) !== String(id)) {
     return res.status(403).json({ message: 'Forbidden' });
   }
   try {
     const me = await User.findById(authUserId);
-    const request = me.friendRequests.find(
-      fr => fr.from.toString() === fromId
-    );
+    const request = me.friendRequests.find(fr => String(fr.from) === String(fromId));
     if (!request) {
       return res.status(404).json({ message: 'Friend request not found' });
     }
+
     request.status = accept ? 'accepted' : 'rejected';
     await me.save();
+
     if (accept) {
       await User.findByIdAndUpdate(fromId, { $push: { friends: authUserId } });
       me.friends.push(fromId);
