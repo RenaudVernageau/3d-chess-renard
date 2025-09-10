@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import React from "react";
+import React, { useEffect } from "react";
 import {
   HashRouter as Router,
   Routes,
@@ -38,6 +38,16 @@ function PrivateRoute({ children }) {
 }
 
 export default function App() {
+  // 🔧 Normalise l'URL si on arrive sans hash (ex: /play/1234) pour éviter /play/...#/play/...
+  useEffect(() => {
+    const hasHash = !!window.location.hash;
+    const path = window.location.pathname;
+    if (!hasHash && path && path !== "/") {
+      const next = `/#${path}${window.location.search || ""}`;
+      window.location.replace(next);
+    }
+  }, []);
+
   const { currentRoomId, myColor } = useGameUiStore();
   return (
     <AuthProvider>
