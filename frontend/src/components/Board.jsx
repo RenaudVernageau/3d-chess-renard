@@ -6,6 +6,7 @@ import React, {
   useImperativeHandle,
   forwardRef,
   useEffect,
+  useRef,
   Suspense,
 } from "react";
 import { useSpring, a } from "@react-spring/three";
@@ -33,12 +34,60 @@ const squareToPosition = (square) => {
   return [col - 3.5, 0.12, row - 3.5];
 };
 
-export default forwardRef(function Board({ socket, roomId, color }, ref) {
+export default forwardRef(function Board(
+  { socket, roomId, color, disabled = false, onGameOver },
+  ref
+) {
+  // useChess fournit l'état logique (plateau, coups, tour, etc.)
   const { board, positions, lastMove, move, getLegalMoves, turn, gameOver } =
     useChess();
+
   const [selected, setSelected] = useState(null);
 
-  // ✅ Interpréteur pour appliquer un move WebSocket
+  // ✅ Empêche de déclencher la fin de partie plusieurs fois
+  const endedRef = useRef(false);
+
+  // 🔊 Sons
+  const moveSelfSound = useMemo(() => new Audio(moveSelfUrl), []);
+  const moveCheckSound = useMemo(() => new Audio(moveCheckUrl), []);
+  const captureSound = useMemo(() => new Audio(captureUrl), []);
+  const castleSound = useMemo(() => new Audio(castleUrl), []);
+  const gameEndSound = useMemo(() => new Audio(gameEndUrl), []);
+
+  // —— Détection + notification fin de partie (centralisée) ——
+  const maybeNotifyGameOver = useCallback(() => {
+    if (endedRef.current) return;
+
+    // Heuristique :
+    // - si gameOver === true et SAN du dernier coup contient '#', on considère un mat
+    // - sinon, on considère une nulle (stalemate/pat/etc.) par défaut
+    if (gameOver) {
+      let payload = { reason: "draw", winner: null };
+
+      const san = lastMove?.san || "";
+      if (san.includes("#")) {
+        // gagnant = couleur qui vient de jouer
+        const who = lastMove?.color === "w" ? "white" : "black";
+        payload = { reason: "checkmate", winner: who };
+      }
+
+      // Joue le son et notifie une seule fois
+      try {
+        gameEndSound.play();
+      } catch {
+        /* ignore autoplay restrictions */
+      }
+      endedRef.current = true;
+      onGameOver && onGameOver(payload);
+    }
+  }, [gameOver, lastMove?.san, lastMove?.color, onGameOver, gameEndSound]);
+
+  useEffect(() => {
+    // À chaque changement de gameOver/lastMove, tente de notifier (une seule fois)
+    maybeNotifyGameOver();
+  }, [maybeNotifyGameOver]);
+
+  // ✅ Interpréteur pour appliquer un move reçu via WebSocket
   // Accepte { from, to } OU { move: { from, to } }
   const applyMove = useCallback(
     (payload) => {
@@ -54,23 +103,20 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
       // Applique le coup côté client
       try {
         move({ from, to });
+        // Après l'application d'un coup distant, on re-check la fin de partie
+        // (useEffect/maybeNotifyGameOver se déclenchera aussi via gameOver)
+        maybeNotifyGameOver();
       } catch (e) {
         console.warn("[Board] move() a rejeté le coup:", { from, to }, e);
       }
     },
-    [move]
+    [move, maybeNotifyGameOver]
   );
 
   // Expose la méthode à l’extérieur via la ref
   useImperativeHandle(ref, () => ({ applyMove }));
 
-  // 🔊 Sons
-  const moveSelfSound = useMemo(() => new Audio(moveSelfUrl), []);
-  const moveCheckSound = useMemo(() => new Audio(moveCheckUrl), []);
-  const captureSound = useMemo(() => new Audio(captureUrl), []);
-  const castleSound = useMemo(() => new Audio(castleUrl), []);
-  const gameEndSound = useMemo(() => new Audio(gameEndUrl), []);
-
+  // ——— Gestion des sons de coups ———
   useEffect(() => {
     if (!lastMove) return;
     try {
@@ -85,6 +131,7 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     }
   }, [lastMove, moveCheckSound, captureSound, castleSound, moveSelfSound]);
 
+  // ——— Sons fin de partie (si useChess déclenche gameOver) ———
   useEffect(() => {
     if (gameOver) {
       try {
@@ -93,13 +140,16 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
     }
   }, [gameOver, gameEndSound]);
 
+  // ——— Cases légales pour la pièce sélectionnée ———
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
     [selected, getLegalMoves]
   );
 
+  // ——— Gestion des clics ———
   const handleClick = useCallback(
     (r, c) => {
+      if (disabled) return; // bloque les interactions si la partie est finie
       // Respect du tour local
       const myTurn = color === "white" ? "w" : "b";
       if (turn !== myTurn) return;
@@ -126,8 +176,14 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         // Applique localement
         try {
           move({ from: selected, to: sq });
+          // Vérifie la fin de partie après le coup
+          maybeNotifyGameOver();
         } catch (e) {
-          console.warn("[Board] move() local a échoué:", { from: selected, to: sq }, e);
+          console.warn(
+            "[Board] move() local a échoué:",
+            { from: selected, to: sq },
+            e
+          );
           setSelected(null);
           return;
         }
@@ -135,17 +191,16 @@ export default forwardRef(function Board({ socket, roomId, color }, ref) {
         // Diffuse via WS
         if (socket && roomId) {
           const payload = { roomId, move: { from: selected, to: sq }, color };
-          // console.log("[Board] emit move_piece", payload);
           socket.emit("move_piece", payload);
         }
       }
 
       setSelected(null);
     },
-    [board, selected, legal, move, turn, socket, roomId, color]
+    [board, selected, legal, move, turn, socket, roomId, color, disabled, maybeNotifyGameOver]
   );
 
-  // Mise en évidence du roi en échec
+  // Mise en évidence du roi en échec (animation)
   const isCheck = lastMove?.san?.includes("+");
   const checkSquare = useMemo(() => {
     if (!isCheck) return null;

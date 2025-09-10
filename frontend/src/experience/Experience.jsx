@@ -18,31 +18,27 @@ export default function Experience() {
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
   const [peerQuit, setPeerQuit] = useState(false);
+  const [gameOver, setGameOver] = useState(null); // { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
 
-  // 🔒 Guards pour éviter les rafales
+  // Guards
   const listenersAttached = useRef(false);
   const joinedOnceForRoom = useRef(false);
   const lastStateReqAt = useRef(0);
-
-  // ✅ Pour rejouer proprement l'état serveur
-  const lastAppliedMoveCount = useRef(0); // combien de coups serveur déjà appliqués
+  const lastAppliedMoveCount = useRef(0);
 
   // Expose UI globale
   useEffect(() => {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
     return () => {
-      // on conserve currentRoomId si on ferme l’onglet, utile pour "Reprendre"
       setGameUi({ isInGame: false, players: [], myColor: undefined });
-      // reset du compteur d'état
       lastAppliedMoveCount.current = 0;
     };
   }, [roomId, setGameUi]);
 
-  // Helpers
   const toNames = (arr) =>
     (Array.isArray(arr) ? arr : []).map((p) =>
       typeof p === "string" ? p : p?.username
@@ -54,17 +50,14 @@ export default function Experience() {
     setGameUi({ players: names });
   };
 
-  // Attache les listeners **une seule fois** par montage de la page de jeu
+  // Attache les listeners WS
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
     if (listenersAttached.current) {
-      // listeners déjà attachés pour ce montage
-      // tente juste un rejoin si besoin
       if (!joinedOnceForRoom.current) {
         emit("join_room", { roomId, username: user.username });
         joinedOnceForRoom.current = true;
-        // petit "state_request" unique
         const now = Date.now();
         if (now - lastStateReqAt.current > 800) {
           emit("state_request", { roomId });
@@ -74,7 +67,6 @@ export default function Experience() {
       return;
     }
 
-    // ——— Handlers ———
     const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
       publishPlayers(createdPlayers);
       const names = toNames(createdPlayers);
@@ -85,7 +77,6 @@ export default function Experience() {
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
-      // le créateur reçoit aussi un state_sync (vide) juste après
     };
 
     const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
@@ -104,12 +95,10 @@ export default function Experience() {
       publishPlayers(updatedPlayers);
     };
 
-    // Reçoit un coup → **on ne toggle pas le tour ici**, c’est le serveur qui envoie "turn_update"
     const handleMove = (payload) => {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
-      // On incrémente le compteur local si on reçoit des coups "manqués"
       lastAppliedMoveCount.current = Math.max(lastAppliedMoveCount.current + 1, lastAppliedMoveCount.current);
     };
 
@@ -128,20 +117,17 @@ export default function Experience() {
       }
     };
 
-    // ✅ Re-synchronisation depuis le serveur (après reconnect/reload/arrivée tardive)
+    // ✅ Re-synchronisation depuis le serveur
     const handleStateSync = (state) => {
       try {
         const moves = Array.isArray(state?.moves) ? state.moves : [];
         const fen = typeof state?.fen === "string" ? state.fen : null;
 
-        // Si le Board expose une méthode loadFen, on l'utilise (plus robuste)
         if (fen && typeof boardRef.current?.loadFen === "function") {
           boardRef.current.loadFen(fen);
           lastAppliedMoveCount.current = moves.length;
           return;
         }
-
-        // Sinon, on rejoue **uniquement** les nouveaux coups non encore appliqués
         const already = lastAppliedMoveCount.current || 0;
         if (moves.length > already && boardRef.current?.applyMove) {
           for (let i = already; i < moves.length; i++) {
@@ -157,7 +143,12 @@ export default function Experience() {
       }
     };
 
-    // 1) Attacher
+    // (Optionnel) si un jour le serveur émet un 'game_over'
+    const handleGameOverServer = (payload) => {
+      // payload attendu: { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
+      setGameOver(payload || { reason: "unknown", winner: null });
+    };
+
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
@@ -165,15 +156,14 @@ export default function Experience() {
     on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
     on("state_sync", handleStateSync);
+    on("game_over", handleGameOverServer);
     on("error", handleServerError);
 
     listenersAttached.current = true;
 
-    // 2) Join unique
     if (!joinedOnceForRoom.current) {
       emit("join_room", { roomId, username: user.username });
       joinedOnceForRoom.current = true;
-      // Demande d’état unique (anti-rafale)
       const now = Date.now();
       if (now - lastStateReqAt.current > 800) {
         emit("state_request", { roomId });
@@ -182,7 +172,6 @@ export default function Experience() {
     }
 
     return () => {
-      // Nettoyage complet au démontage de la page
       emit("leave_room", { roomId });
       off("room_created", handleRoomCreated);
       off("room_joined", handleRoomJoined);
@@ -191,25 +180,25 @@ export default function Experience() {
       off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
       off("state_sync", handleStateSync);
+      off("game_over", handleGameOverServer);
       off("error", handleServerError);
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
-      // on ne remet pas lastAppliedMoveCount ici pour permettre "reprendre" si on revient vite
+      // on laisse lastAppliedMoveCount pour permettre une reprise rapide
     };
-    // ⬇️ on se limite à ces deps pour ne pas ré-attacher à chaque setState
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
 
-  // Publie la couleur dans le store si découverte plus tard
+  // Publie ma couleur si définie
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
 
-  // Rejoindre si l’onglet redevient visible (cas iOS/suspension) — mais **une seule fois**
+  // Rejoindre si retour onglet
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
       if (!roomId || !socket) return;
-      joinedOnceForRoom.current = false; // autorise un join unique
+      joinedOnceForRoom.current = false;
       const now = Date.now();
       if (now - lastStateReqAt.current > 800) {
         emit("state_request", { roomId });
@@ -246,7 +235,13 @@ export default function Experience() {
     navigate("/lobby", { replace: true });
   };
 
-  // Popup "l'adversaire a quitté"
+  // ✅ Nouveau : gestion fin de partie (checkmate / etc.)
+  const handleGameOverLocal = (payload) => {
+    // payload: { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
+    setGameOver(payload || { reason: "unknown", winner: null });
+  };
+
+  // Modal "adversaire a quitté"
   const peerQuitModal = peerQuit ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-[90%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
@@ -276,6 +271,51 @@ export default function Experience() {
     </div>
   ) : null;
 
+  // ✅ Nouveau : Modal "fin de partie"
+  const gameOverModal = gameOver ? (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-[92%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
+        <h3 className="text-xl font-semibold mb-2">
+          {gameOver.reason === "checkmate"
+            ? "Échec et mat"
+            : gameOver.reason === "stalemate"
+            ? "Pat"
+            : gameOver.reason === "draw"
+            ? "Match nul"
+            : gameOver.reason === "resign"
+            ? "Abandon"
+            : "Partie terminée"}
+        </h3>
+
+        <p className="text-stone-300 mb-5">
+          {gameOver.winner
+            ? `Victoire des ${gameOver.winner === "white" ? "Blancs" : "Noirs"}.`
+            : "Merci d’avoir joué !"}
+        </p>
+
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => {
+              // Retour menu + reset UI
+              setGameUi({
+                currentRoomId: null,
+                myColor: undefined,
+                players: [],
+                isInGame: false,
+                turnColor: undefined,
+                myTurn: undefined,
+              });
+              navigate("/lobby", { replace: true });
+            }}
+            className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
+          >
+            Retour au menu
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // Bouton "Quitter la partie"
   const quitButton = (
     <div className="absolute top-2 right-2 z-40">
@@ -294,16 +334,24 @@ export default function Experience() {
       <div className="flex-1 relative">
         {quitButton}
         {peerQuitModal}
+        {gameOverModal}
         <Canvas
           flat
           shadows
-          dpr={[1, 1.5]}        // un poil moins exigeant → moins de context lost sur mobile
+          dpr={[1, 1.5]}
           camera={{ fov: 45, near: 0.1, far: 200 }}
         >
           <Controls isWhite={color === "white"} />
           <Lights />
           <Suspense fallback={null}>
-            <Board ref={boardRef} socket={socket} roomId={roomId} color={color} />
+            <Board
+              ref={boardRef}
+              socket={socket}
+              roomId={roomId}
+              color={color}
+              disabled={!!gameOver}           // ⬅️ bloque les coups après fin de partie
+              onGameOver={handleGameOverLocal} // ⬅️ remonte la fin de partie
+            />
           </Suspense>
         </Canvas>
       </div>
