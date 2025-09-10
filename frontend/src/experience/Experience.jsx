@@ -22,22 +22,52 @@ export default function Experience() {
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
 
+  // 🔒 Guards pour éviter les rafales
+  const listenersAttached = useRef(false);
+  const joinedOnceForRoom = useRef(false);
+  const lastStateReqAt = useRef(0);
+
+  // Expose UI globale
+  useEffect(() => {
+    if (!roomId) return;
+    setGameUi({ currentRoomId: roomId, isInGame: true });
+    return () => {
+      // on conserve currentRoomId si on ferme l’onglet, utile pour "Reprendre"
+      setGameUi({ isInGame: false, players: [], myColor: undefined });
+    };
+  }, [roomId, setGameUi]);
+
+  // Helpers
+  const toNames = (arr) =>
+    (Array.isArray(arr) ? arr : []).map((p) =>
+      typeof p === "string" ? p : p?.username
+    );
+
+  const publishPlayers = (arr) => {
+    const names = toNames(arr);
+    setPlayers(arr);
+    setGameUi({ players: names });
+  };
+
+  // Attache les listeners **une seule fois** par montage de la page de jeu
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
-    // Expose l'ID et l'état "en jeu"
-    setGameUi({ currentRoomId: roomId, isInGame: true });
-
-    const toNames = (arr) =>
-      (Array.isArray(arr) ? arr : []).map((p) =>
-        typeof p === "string" ? p : p?.username
-      );
-
-    const publishPlayers = (arr) => {
-      const names = toNames(arr);
-      setPlayers(arr);
-      setGameUi({ players: names });
-    };
+    if (listenersAttached.current) {
+      // listeners déjà attachés pour ce montage
+      // tente juste un rejoin si besoin
+      if (!joinedOnceForRoom.current) {
+        emit("join_room", { roomId, username: user.username });
+        joinedOnceForRoom.current = true;
+        // petit "state_request" unique
+        const now = Date.now();
+        if (now - lastStateReqAt.current > 800) {
+          emit("state_request", { roomId });
+          lastStateReqAt.current = now;
+        }
+      }
+      return;
+    }
 
     // ——— Handlers ———
     const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
@@ -45,10 +75,8 @@ export default function Experience() {
       const names = toNames(createdPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
       const myColor = yourColor || fallback;
-
       setColor((prev) => prev || myColor);
-      setGameUi({ myColor });
-
+      setGameUi({ myColor: myColor });
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
@@ -59,10 +87,8 @@ export default function Experience() {
       const names = toNames(joinedPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
       const myColor = yourColor || fallback;
-
       setColor((prev) => prev || myColor);
-      setGameUi({ myColor });
-
+      setGameUi({ myColor: myColor });
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
@@ -72,41 +98,21 @@ export default function Experience() {
       publishPlayers(updatedPlayers);
     };
 
-    // Reçoit un coup d'un pair
+    // Reçoit un coup → **on ne toggle pas le tour ici**, c’est le serveur qui envoie "turn_update"
     const handleMove = (payload) => {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
-      boardRef.current?.applyMove?.(m);
+      boardRef.current?.applyMove(m);
     };
 
-    // Mise à jour du tour envoyée par le serveur
     const handleTurnUpdate = ({ activeColor }) => {
       if (activeColor !== "white" && activeColor !== "black") return;
       const myColorNow = useGameUiStore.getState().myColor || color;
       setGameUi({ turnColor: activeColor, myTurn: myColorNow === activeColor });
     };
 
-    // L'adversaire a quitté
     const handlePeerQuit = () => setPeerQuit(true);
 
-    // (Important) Synchronisation d'état à l'entrée / reload
-    const handleStateSync = ({ fen, moves } = {}) => {
-      // Si Board expose setFromFEN (idéal)
-      if (fen && boardRef.current?.setFromFEN) {
-        boardRef.current.setFromFEN(fen);
-        return;
-      }
-      // Sinon, on rejoue la liste de coups
-      if (Array.isArray(moves) && moves.length && boardRef.current?.applyMove) {
-        // Option: reset au setup de départ si Board propose reset()
-        boardRef.current?.reset?.();
-        for (const mv of moves) {
-          if (mv?.from && mv?.to) boardRef.current.applyMove(mv);
-        }
-      }
-    };
-
-    // Gestion erreurs (fallback: créer la room si join_room échoue)
     const handleServerError = (err) => {
       const msg = typeof err === "string" ? err : err?.error;
       if (msg === "Room not found") {
@@ -114,53 +120,68 @@ export default function Experience() {
       }
     };
 
-    // 1) Attacher les listeners AVANT d'émettre join_room
+    // 1) Attacher
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
     on("move_piece", handleMove);
     on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
-    on("state_sync", handleStateSync);
+    on("state_sync", (state) => {
+      // si un jour tu envoies un historique/FEN complet, rejoue ici
+      // ex: boardRef.current?.loadFen(state.fen)
+    });
     on("error", handleServerError);
 
-    // 2) Rejoindre la room
-    emit("join_room", { roomId, username: user.username });
+    listenersAttached.current = true;
 
-    // 3) Demander explicitement l'état (au cas où)
-    const safety = setTimeout(() => emit("state_request", { roomId }), 600);
+    // 2) Join unique
+    if (!joinedOnceForRoom.current) {
+      emit("join_room", { roomId, username: user.username });
+      joinedOnceForRoom.current = true;
+      // Demande d’état unique (anti-rafale)
+      const now = Date.now();
+      if (now - lastStateReqAt.current > 800) {
+        emit("state_request", { roomId });
+        lastStateReqAt.current = now;
+      }
+    }
 
     return () => {
-      clearTimeout(safety);
+      // Nettoyage complet au démontage de la page
       emit("leave_room", { roomId });
-
       off("room_created", handleRoomCreated);
       off("room_joined", handleRoomJoined);
       off("room_player_update", handlePlayerUpdate);
       off("move_piece", handleMove);
       off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
-      off("state_sync", handleStateSync);
+      off("state_sync");
       off("error", handleServerError);
-
-      // On garde currentRoomId pour "Reprendre la partie" si on quitte la page sans quitter la partie
-      setGameUi({ isInGame: false, players: [], myColor: undefined });
+      listenersAttached.current = false;
+      joinedOnceForRoom.current = false;
     };
-  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
+    // ⬇️ on se limite à ces deps pour ne pas ré-attacher à chaque setState
+  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
 
-  // Publie la couleur (pour l'icône ⚪/⚫ de la NavBar si set ailleurs)
+  // Publie la couleur dans le store si découverte plus tard
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
 
-  // Rejoindre si l’onglet redevient visible (cas iOS/suspension)
+  // Rejoindre si l’onglet redevient visible (cas iOS/suspension) — mais **une seule fois**
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      if (roomId && socket) {
-        emit("join_room", { roomId, username: user.username });
+      if (!roomId || !socket) return;
+      joinedOnceForRoom.current = false; // autorise un join unique
+      const now = Date.now();
+      if (now - lastStateReqAt.current > 800) {
         emit("state_request", { roomId });
+        lastStateReqAt.current = now;
       }
+      emit("join_room", { roomId, username: user.username });
+      joinedOnceForRoom.current = true;
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
@@ -238,7 +259,12 @@ export default function Experience() {
       <div className="flex-1 relative">
         {quitButton}
         {peerQuitModal}
-        <Canvas flat shadows camera={{ fov: 45, near: 0.1, far: 200 }}>
+        <Canvas
+          flat
+          shadows
+          dpr={[1, 1.5]}        // un poil moins exigeant → moins de context lost sur mobile
+          camera={{ fov: 45, near: 0.1, far: 200 }}
+        >
           <Controls isWhite={color === "white"} />
           <Lights />
           <Suspense fallback={null}>

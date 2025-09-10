@@ -10,6 +10,10 @@ function initWebsocket(server) {
   const io = require("socket.io")(server, {
     cors: { origin: "*" },
     path: "/socket.io",
+    // ✅ Ajout pour limiter les déco sur mobile / onglets en veille
+    transports: ["websocket"], // évite de retomber en polling
+    pingInterval: 25000,       // battement ping
+    pingTimeout: 60000,        // délai avant de considérer la connexion perdue
   });
 
   // --- Auth WS ---
