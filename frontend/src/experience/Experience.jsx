@@ -27,6 +27,9 @@ export default function Experience() {
   const joinedOnceForRoom = useRef(false);
   const lastStateReqAt = useRef(0);
 
+  // ✅ Pour rejouer proprement l'état serveur
+  const lastAppliedMoveCount = useRef(0); // combien de coups serveur déjà appliqués
+
   // Expose UI globale
   useEffect(() => {
     if (!roomId) return;
@@ -34,6 +37,8 @@ export default function Experience() {
     return () => {
       // on conserve currentRoomId si on ferme l’onglet, utile pour "Reprendre"
       setGameUi({ isInGame: false, players: [], myColor: undefined });
+      // reset du compteur d'état
+      lastAppliedMoveCount.current = 0;
     };
   }, [roomId, setGameUi]);
 
@@ -80,6 +85,7 @@ export default function Experience() {
       if (activeColor === "white" || activeColor === "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
+      // le créateur reçoit aussi un state_sync (vide) juste après
     };
 
     const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
@@ -103,6 +109,8 @@ export default function Experience() {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
+      // On incrémente le compteur local si on reçoit des coups "manqués"
+      lastAppliedMoveCount.current = Math.max(lastAppliedMoveCount.current + 1, lastAppliedMoveCount.current);
     };
 
     const handleTurnUpdate = ({ activeColor }) => {
@@ -120,6 +128,35 @@ export default function Experience() {
       }
     };
 
+    // ✅ Re-synchronisation depuis le serveur (après reconnect/reload/arrivée tardive)
+    const handleStateSync = (state) => {
+      try {
+        const moves = Array.isArray(state?.moves) ? state.moves : [];
+        const fen = typeof state?.fen === "string" ? state.fen : null;
+
+        // Si le Board expose une méthode loadFen, on l'utilise (plus robuste)
+        if (fen && typeof boardRef.current?.loadFen === "function") {
+          boardRef.current.loadFen(fen);
+          lastAppliedMoveCount.current = moves.length;
+          return;
+        }
+
+        // Sinon, on rejoue **uniquement** les nouveaux coups non encore appliqués
+        const already = lastAppliedMoveCount.current || 0;
+        if (moves.length > already && boardRef.current?.applyMove) {
+          for (let i = already; i < moves.length; i++) {
+            const m = moves[i];
+            if (m && m.from && m.to) {
+              boardRef.current.applyMove(m);
+            }
+          }
+          lastAppliedMoveCount.current = moves.length;
+        }
+      } catch (e) {
+        console.warn("[WS] state_sync apply error:", e);
+      }
+    };
+
     // 1) Attacher
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
@@ -127,10 +164,7 @@ export default function Experience() {
     on("move_piece", handleMove);
     on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
-    on("state_sync", (state) => {
-      // si un jour tu envoies un historique/FEN complet, rejoue ici
-      // ex: boardRef.current?.loadFen(state.fen)
-    });
+    on("state_sync", handleStateSync);
     on("error", handleServerError);
 
     listenersAttached.current = true;
@@ -156,13 +190,14 @@ export default function Experience() {
       off("move_piece", handleMove);
       off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
-      off("state_sync");
+      off("state_sync", handleStateSync);
       off("error", handleServerError);
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
+      // on ne remet pas lastAppliedMoveCount ici pour permettre "reprendre" si on revient vite
     };
     // ⬇️ on se limite à ces deps pour ne pas ré-attacher à chaque setState
-  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi]);
+  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
 
   // Publie la couleur dans le store si découverte plus tard
   useEffect(() => {
