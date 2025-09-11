@@ -1,15 +1,17 @@
-// frontend/src/api/index.js
-
-// Base URL de l'API (sans / final). En dev, tu peux laisser vide et utiliser un proxy Vite.
+// Base URL de l'API (sans slash final)
 // Exemple prod: VITE_API_URL=https://chess-3d-dd1c42f23b5e.herokuapp.com
 const RAW = import.meta.env.VITE_API_URL || "";
 const API_BASE = RAW.replace(/\/+$/, ""); // retire tout trailing slash
 
-export default async function api(path, { method = "GET", body, headers = {} } = {}) {
+export default async function api(
+  path,
+  { method = "GET", body, headers = {} } = {}
+) {
   // garantit un seul "/" entre base et path
   const url = `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
 
   const token = localStorage.getItem("token") || "";
+
   const res = await fetch(url, {
     method,
     headers: {
@@ -43,5 +45,6 @@ export default async function api(path, { method = "GET", body, headers = {} } =
     throw err;
   }
 
+  // ✅ On renvoie toujours le JSON (ou null pour 204)
   return data;
 }

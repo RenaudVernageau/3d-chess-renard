@@ -1,36 +1,33 @@
-// src/api/users.js
-import api from './index';
+import api from "./index";
 
-// Récupère tous les utilisateurs
-export const fetchAllUsers = () =>
-  api('/users', { method: 'GET' });
-
-// Récupère un utilisateur par ID
-export const fetchUser = id =>
-  api(`/users/${id}`, { method: 'GET' });
-
+// ---- Current user ----
 export function getMe() {
   return api("/users/me", { method: "GET" });
 }
 
-// Envoie une demande d’ami
-export const sendFriendRequest = id =>
-  api(`/users/${id}/friend-request`, { method: 'POST' });
+export function updateMe(payload) {
+  // Back: PUT /users/me ; payload peut contenir { username?, avatar? }
+  return api("/users/me", { method: "PUT", body: payload });
+}
 
-// Répond à une demande d’ami (accept/reject)
+// ---- Others (inchangés / utiles ailleurs) ----
+export const fetchAllUsers = () => api("/users", { method: "GET" });
+
+export const fetchUser = (id) => api(`/users/${id}`, { method: "GET" });
+
+export const sendFriendRequest = (id) =>
+  api(`/users/${id}/friend-request`, { method: "POST" });
+
 export const respondFriendRequest = (myId, { fromId, accept }) =>
   api(`/users/${myId}/friend-request/respond`, {
-    method: 'POST',
-    body: { fromId, accept }
+    method: "POST",
+    body: { fromId, accept },
   });
 
-// Met à jour son propre profil
 export const updateUser = (id, { username, avatar }) =>
   api(`/users/${id}`, {
-    method: 'PUT',
-    body: { username, avatar }
+    method: "PUT",
+    body: { username, avatar },
   });
 
-// Supprime son propre compte
-export const deleteUser = id =>
-  api(`/users/${id}`, { method: 'DELETE' });
+export const deleteUser = (id) => api(`/users/${id}`, { method: "DELETE" });

@@ -1,10 +1,11 @@
-const User = require('../models/User');
+const mongoose = require("mongoose");
+const User = require("../models/User");
 
 /* ---------- helpers ---------- */
 function toPublicUser(u) {
   if (!u) return null;
   const id = String(u._id || u.id);
-  const avatar = u.avatar || u.avatarUrl || '';
+  const avatar = u.avatarUrl || u.avatar || "";
   return {
     id,
     username: u.username,
@@ -14,70 +15,102 @@ function toPublicUser(u) {
   };
 }
 
+/* ========== GET /users/me ========== */
+exports.getMe = async (req, res) => {
+  try {
+    const authUserId = req.user?.id;
+    if (!authUserId)
+      return res.status(401).json({ message: "Not authenticated" });
+
+    const me = await User.findById(authUserId)
+      .select("username email avatar avatarUrl createdAt")
+      .lean();
+
+    if (!me) return res.status(404).json({ message: "User not found" });
+    return res.json(toPublicUser(me));
+  } catch (err) {
+    console.error("getMe error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 /* ========== GET /users ========== */
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
-      .select('username email avatar avatarUrl createdAt')
+      .select("username email avatar avatarUrl createdAt")
       .sort({ username: 1 })
       .lean();
 
     res.json(users.map(toPublicUser));
   } catch (err) {
-    console.error('getAllUsers error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("getAllUsers error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /* ========== GET /users/:id ========== */
 exports.getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-passwordHash username email avatar avatarUrl createdAt')
-      .populate('friends', 'username avatar avatarUrl')
-      .populate('friendRequests.from', 'username avatar avatarUrl')
+    const { id } = req.params;
+
+    // Evite les 500 si l'id n'est pas un ObjectId
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+
+    const user = await User.findById(id)
+      .select("-password username email avatar avatarUrl createdAt")
+      .populate("friends", "username avatar avatarUrl")
+      .populate("friendRequests.from", "username avatar avatarUrl")
       .lean();
 
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.json(toPublicUser(user));
   } catch (err) {
-    console.error('getUserById error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("getUserById error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /* ---------- facteur commun de mise à jour ---------- */
 async function applyUserUpdates({ targetUserId, body }) {
   const updates = {};
+
   // username
-  if (typeof body.username === 'string' && body.username.trim()) {
+  if (typeof body.username === "string" && body.username.trim()) {
     const username = body.username.trim();
     const exists = await User.findOne({ username }).lean();
     if (exists && String(exists._id) !== String(targetUserId)) {
-      const e = new Error('Username already in use');
+      const e = new Error("Username already in use");
       e.code = 409;
       throw e;
     }
     updates.username = username;
   }
-  // avatar: on accepte "avatar" (nouveau) ou "avatarUrl" (legacy)
-  if (typeof body.avatar === 'string') updates.avatar = body.avatar;
-  if (typeof body.avatarUrl === 'string') updates.avatar = body.avatarUrl;
+
+  // Avatar : on accepte "avatar" ET/OU "avatarUrl", on sauve toujours en avatarUrl (conforme au schéma)
+  if (typeof body.avatar === "string" && body.avatar.trim()) {
+    updates.avatarUrl = body.avatar.trim();
+  }
+  if (typeof body.avatarUrl === "string" && body.avatarUrl.trim()) {
+    updates.avatarUrl = body.avatarUrl.trim();
+  }
 
   if (Object.keys(updates).length === 0) {
-    const e = new Error('No changes');
+    const e = new Error("No changes");
     e.code = 400;
     throw e;
   }
 
-  const user = await User.findByIdAndUpdate(
-    targetUserId,
-    updates,
-    { new: true, runValidators: true, context: 'query' }
-  ).select('username email avatar avatarUrl createdAt');
+  const user = await User.findByIdAndUpdate(targetUserId, updates, {
+    new: true,
+    runValidators: true,
+    context: "query",
+  }).select("username email avatar avatarUrl createdAt");
 
   if (!user) {
-    const e = new Error('User not found');
+    const e = new Error("User not found");
     e.code = 404;
     throw e;
   }
@@ -88,17 +121,20 @@ async function applyUserUpdates({ targetUserId, body }) {
 exports.updateMe = async (req, res) => {
   try {
     const authUserId = req.user?.id;
-    if (!authUserId) return res.status(401).json({ message: 'Not authenticated' });
+    if (!authUserId)
+      return res.status(401).json({ message: "Not authenticated" });
 
-    const updated = await applyUserUpdates({ targetUserId: authUserId, body: req.body });
+    const updated = await applyUserUpdates({
+      targetUserId: authUserId,
+      body: req.body,
+    });
     return res.json(toPublicUser(updated));
   } catch (err) {
     const status = err.code || 500;
-    if (status !== 500) {
+    if (status !== 500)
       return res.status(status).json({ message: err.message });
-    }
-    console.error('updateMe error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("updateMe error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -108,18 +144,19 @@ exports.updateUser = async (req, res) => {
     const authUserId = req.user?.id;
     const { id } = req.params;
     if (!authUserId || String(authUserId) !== String(id)) {
-      return res.status(403).json({ message: 'Forbidden' });
+      return res.status(403).json({ message: "Forbidden" });
     }
-
-    const updated = await applyUserUpdates({ targetUserId: id, body: req.body });
+    const updated = await applyUserUpdates({
+      targetUserId: id,
+      body: req.body,
+    });
     return res.json(toPublicUser(updated));
   } catch (err) {
     const status = err.code || 500;
-    if (status !== 500) {
+    if (status !== 500)
       return res.status(status).json({ message: err.message });
-    }
-    console.error('updateUser error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("updateUser error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -128,14 +165,14 @@ exports.deleteUser = async (req, res) => {
   const authUserId = req.user?.id;
   const { id } = req.params;
   if (!authUserId || String(authUserId) !== String(id)) {
-    return res.status(403).json({ message: 'Forbidden' });
+    return res.status(403).json({ message: "Forbidden" });
   }
   try {
     await User.findByIdAndDelete(id);
-    res.json({ message: 'User deleted' });
+    res.json({ message: "User deleted" });
   } catch (err) {
-    console.error('deleteUser error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("deleteUser error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -144,22 +181,29 @@ exports.sendFriendRequest = async (req, res) => {
   const fromId = req.user?.id;
   const toId = req.params.id;
   if (String(fromId) === String(toId)) {
-    return res.status(400).json({ message: 'Cannot friend yourself' });
+    return res.status(400).json({ message: "Cannot friend yourself" });
   }
   try {
     const target = await User.findById(toId);
-    if (!target) return res.status(404).json({ message: 'Target user not found' });
+    if (!target)
+      return res.status(404).json({ message: "Target user not found" });
 
     const alreadyFriends = target.friends.map(String).includes(String(fromId));
-    const existingRequest = target.friendRequests.some(fr => String(fr.from) === String(fromId));
+    const existingRequest = target.friendRequests.some(
+      (fr) => String(fr.from) === String(fromId)
+    );
     if (alreadyFriends || existingRequest) {
-      return res.status(409).json({ message: 'Already friends or request pending' });
+      return res
+        .status(409)
+        .json({ message: "Already friends or request pending" });
     }
-    await User.findByIdAndUpdate(toId, { $push: { friendRequests: { from: fromId } } });
-    res.status(201).json({ message: 'Friend request sent' });
+    await User.findByIdAndUpdate(toId, {
+      $push: { friendRequests: { from: fromId } },
+    });
+    res.status(201).json({ message: "Friend request sent" });
   } catch (err) {
-    console.error('sendFriendRequest error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("sendFriendRequest error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -169,16 +213,18 @@ exports.respondFriendRequest = async (req, res) => {
   const { id } = req.params;
   const { fromId, accept } = req.body;
   if (!authUserId || String(authUserId) !== String(id)) {
-    return res.status(403).json({ message: 'Forbidden' });
+    return res.status(403).json({ message: "Forbidden" });
   }
   try {
     const me = await User.findById(authUserId);
-    const request = me.friendRequests.find(fr => String(fr.from) === String(fromId));
+    const request = me.friendRequests.find(
+      (fr) => String(fr.from) === String(fromId)
+    );
     if (!request) {
-      return res.status(404).json({ message: 'Friend request not found' });
+      return res.status(404).json({ message: "Friend request not found" });
     }
 
-    request.status = accept ? 'accepted' : 'rejected';
+    request.status = accept ? "accepted" : "rejected";
     await me.save();
 
     if (accept) {
@@ -186,9 +232,11 @@ exports.respondFriendRequest = async (req, res) => {
       me.friends.push(fromId);
       await me.save();
     }
-    res.json({ message: accept ? 'Friend request accepted' : 'Friend request rejected' });
+    res.json({
+      message: accept ? "Friend request accepted" : "Friend request rejected",
+    });
   } catch (err) {
-    console.error('respondFriendRequest error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("respondFriendRequest error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
