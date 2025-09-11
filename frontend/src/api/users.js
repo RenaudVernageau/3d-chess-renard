@@ -1,10 +1,6 @@
 // src/api/users.js
 import api from './index';
 
-export function getMe() {
-  return api("/users/me", { method: "GET" });
-}
-
 // Récupère tous les utilisateurs
 export const fetchAllUsers = () =>
   api('/users', { method: 'GET' });
@@ -12,6 +8,10 @@ export const fetchAllUsers = () =>
 // Récupère un utilisateur par ID
 export const fetchUser = id =>
   api(`/users/${id}`, { method: 'GET' });
+
+export function getMe() {
+  return api("/users/me", { method: "GET" });
+}
 
 // Envoie une demande d’ami
 export const sendFriendRequest = id =>
