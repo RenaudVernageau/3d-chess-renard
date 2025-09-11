@@ -1,14 +1,14 @@
-// frontend/src/hooks/useAuth.jsx
+// src/hooks/useAuth.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { login as apiLogin, register as apiRegister } from "../api/auth";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);  // { userId, username, token, email, avatar }
+  const [user, setUser] = useState(null); // { userId, username, token, email, avatar|avatarUrl }
   const [ready, setReady] = useState(false);
 
-  // Réhydratation robuste au montage
+  // Réhydratation au montage
   useEffect(() => {
     try {
       const token    = localStorage.getItem("token");
@@ -16,7 +16,6 @@ export function AuthProvider({ children }) {
       const username = localStorage.getItem("username");
       const email    = localStorage.getItem("email");
       const avatar   = localStorage.getItem("avatar");
-
       if (token && userId && username) {
         setUser({ userId, username, token, email, avatar });
       } else {
@@ -27,26 +26,36 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Synchronisation multi-onglets (facultative mais safe)
+  // Sync multi-onglets
   useEffect(() => {
-    const onStorage = (e) => {
-      if (!e) return;
-      if (["token", "userId", "username", "email", "avatar"].includes(e.key)) {
-        const token    = localStorage.getItem("token");
-        const userId   = localStorage.getItem("userId");
-        const username = localStorage.getItem("username");
-        const email    = localStorage.getItem("email");
-        const avatar   = localStorage.getItem("avatar");
-        if (token && userId && username) {
-          setUser({ userId, username, token, email, avatar });
-        } else {
-          setUser(null);
-        }
+    const onStorage = () => {
+      const token    = localStorage.getItem("token");
+      const userId   = localStorage.getItem("userId");
+      const username = localStorage.getItem("username");
+      const email    = localStorage.getItem("email");
+      const avatar   = localStorage.getItem("avatar");
+      if (token && userId && username) {
+        setUser({ userId, username, token, email, avatar });
+      } else {
+        setUser(null);
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  // Helper pour appliquer un user partiel (ex: après update profil)
+  const updateUser = (partial = {}) => {
+    setUser((prev) => {
+      const next = { ...(prev || {}), ...(partial || {}) };
+      // normalise avatar/URL
+      const avatarUrl = next.avatarUrl || next.avatar || "";
+      localStorage.setItem("username", next.username || "");
+      localStorage.setItem("email",    next.email || "");
+      localStorage.setItem("avatar",   avatarUrl || "");
+      return { ...next, avatar: avatarUrl }; // garde "avatar" pour compat NavBar etc.
+    });
+  };
 
   // Connexion
   const login = async ({ username, password }) => {
@@ -56,18 +65,25 @@ export function AuthProvider({ children }) {
       userId,
       email,
       avatar,
+      avatarUrl,
       username: unameFromApi,
     } = result || {};
-
     const finalUsername = unameFromApi || username || "";
 
     localStorage.setItem("token",    token || "");
     localStorage.setItem("userId",   userId || "");
     localStorage.setItem("username", finalUsername);
     localStorage.setItem("email",    email || "");
-    localStorage.setItem("avatar",   avatar || "");
+    localStorage.setItem("avatar",   avatarUrl || avatar || "");
 
-    const next = { userId, username: finalUsername, token, email, avatar };
+    const next = {
+      userId,
+      username: finalUsername,
+      token,
+      email,
+      avatar: avatarUrl || avatar || "",
+      avatarUrl: avatarUrl || avatar || "",
+    };
     setUser(next);
     return next;
   };
@@ -80,18 +96,20 @@ export function AuthProvider({ children }) {
       userId,
       email: e,
       avatar: a,
+      avatarUrl,
       username: unameFromApi,
     } = result || {};
 
     const finalUsername = unameFromApi || username || "";
+    const finalAvatar = avatarUrl || a || "";
 
     localStorage.setItem("token",    token || "");
     localStorage.setItem("userId",   userId || "");
     localStorage.setItem("username", finalUsername);
     localStorage.setItem("email",    e || "");
-    localStorage.setItem("avatar",   a || "");
+    localStorage.setItem("avatar",   finalAvatar);
 
-    const next = { userId, username: finalUsername, token, email: e, avatar: a };
+    const next = { userId, username: finalUsername, token, email: e, avatar: finalAvatar, avatarUrl: finalAvatar };
     setUser(next);
     return next;
   };
@@ -109,7 +127,7 @@ export function AuthProvider({ children }) {
   const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, ready, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, ready, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

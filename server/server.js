@@ -19,6 +19,7 @@ const userRoutes = require("./routes/users");
 const roomsRoutes = require("./routes/rooms");
 const notificationsRoutes = require("./routes/notifications");
 const messageRoutes = require("./routes/messages");
+const uploadRoutes = require("./routes/upload");
 
 // WebSocket (rooms + notifications)
 const initWs = require("./services/websocket");
@@ -81,6 +82,7 @@ app.use("/users", userRoutes);
 app.use("/rooms", roomsRoutes);
 app.use("/notifications", notificationsRoutes);
 app.use("/messages", messageRoutes);
+app.use("/upload", uploadRoutes);
 
 /* -------------------------------
  * HTTP + WebSocket
