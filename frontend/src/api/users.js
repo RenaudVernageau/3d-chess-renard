@@ -1,6 +1,10 @@
 // src/api/users.js
 import api from './index';
 
+export function getMe() {
+  return api("/users/me", { method: "GET" });
+}
+
 // Récupère tous les utilisateurs
 export const fetchAllUsers = () =>
   api('/users', { method: 'GET' });
