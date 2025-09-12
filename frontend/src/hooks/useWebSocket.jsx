@@ -20,8 +20,6 @@ export default function useWebSocket(token) {
   useEffect(() => {
     if (!token || socketRef.current) return;
 
-    console.log("[WS] Initialisation WebSocket...");
-
     const socket = io(import.meta.env.VITE_WS_URL || "http://localhost:4000", {
       auth: { token },
       transports: ["websocket"],
@@ -42,35 +40,26 @@ export default function useWebSocket(token) {
         state.players?.[0] ||
         "player";
       if (roomId) {
-        console.log("[WS] 🔁 Rejoin room", roomId);
         socket.emit("join_room", { roomId, username });
-        // Demande proactive de l'état côté serveur si dispo
         socket.emit("state_request", { roomId });
       }
     };
 
+    // ===== Connexion
     socket.on("connect", () => {
-      console.log("[WS] ✅ Connected to server");
       setConnected(true);
       rejoinIfNeeded();
     });
 
-    socket.on("reconnect", (attempt) => {
-      console.log("[WS] 🔗 Reconnected", attempt);
+    socket.on("reconnect", () => {
       setConnected(true);
       rejoinIfNeeded();
     });
 
-    socket.on("disconnect", (reason) => {
-      console.warn("[WS] ❌ Disconnected:", reason);
-      setConnected(false);
-    });
+    socket.on("disconnect", () => setConnected(false));
+    socket.on("connect_error", (err) => console.error("[WS] connect_error:", err?.message));
 
-    socket.on("connect_error", (err) => {
-      console.error("[WS] 🚫 Connection error:", err.message);
-    });
-
-    // 🔔 Notifications messages
+    // ====== MESSAGERIE
     const ping = typeof Audio !== "undefined" ? new Audio("/sounds/ping.mp3") : null;
     const playPing = () => { try { ping && ping.play(); } catch {} };
 
@@ -95,16 +84,41 @@ export default function useWebSocket(token) {
         maybeNotify("Nouveau message", msg?.text || "…");
       }
     };
-
     socket.on("message:new", handleGlobalNewMessage);
 
+    // ====== GAME: hydratation autoritative
+    const applyCapture = (payload) => {
+      useGameUiStore.getState().applyCapture({
+        by: payload.by,
+        piece: payload.piece,
+        from: payload.from,
+        to: payload.to,
+        at: payload.at,
+      });
+    };
+
+    const hydrateSnapshot = (snap) => {
+      // snap: { fen, captures:{w:[],b:[]}, turn:'w'|'b', movesCount }
+      const state = useGameUiStore.getState();
+      // on n’écrase que les champs UI qu’on gère côté client
+      state.setGameUi({
+        // garde currentRoomId / players / etc. inchangés
+        // remonte les captures serveur (miroir)
+        captures: snap?.captures || { w: [], b: [] },
+      });
+      // NOTE: si tu ajoutes un chargement de FEN côté client, c’est ici
+      // que tu appelleras ton hook pour synchroniser l’échiquier.
+    };
+
+    socket.on("piece:capture", applyCapture);
+    socket.on("game:snapshot", hydrateSnapshot);
+    socket.on("state_sync", hydrateSnapshot);
+
     return () => {
-      console.log("[WS] 🧹 Cleaning up socket connection");
       socket.off("message:new", handleGlobalNewMessage);
-      socket.off("connect");
-      socket.off("reconnect");
-      socket.off("disconnect");
-      socket.off("connect_error");
+      socket.off("piece:capture", applyCapture);
+      socket.off("game:snapshot", hydrateSnapshot);
+      socket.off("state_sync", hydrateSnapshot);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -115,30 +129,23 @@ export default function useWebSocket(token) {
 
   const on = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🟢 on("${event}")`);
     socketRef.current.on(event, handler);
   }, []);
 
   const once = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🟡 once("${event}")`);
     socketRef.current.once(event, handler);
   }, []);
 
   const off = useCallback((event, handler) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 🔴 off("${event}")`);
     socketRef.current.off(event, handler);
   }, []);
 
   const emit = useCallback((event, payload, ack) => {
     if (!socketRef.current) return;
-    console.log(`[WS] 📤 emit("${event}")`, payload);
-    if (ack) {
-      socketRef.current.emit(event, payload, ack);
-    } else {
-      socketRef.current.emit(event, payload);
-    }
+    if (ack) socketRef.current.emit(event, payload, ack);
+    else socketRef.current.emit(event, payload);
   }, []);
 
   return {

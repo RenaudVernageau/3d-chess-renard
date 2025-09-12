@@ -19,6 +19,10 @@ import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
+// 🔹 overlays (nouveaux composants très discrets)
+import MaterialPill from "./components/MaterialPill";
+import CapturedStrip from "./components/CapturedStrip";
+
 // PrivateRoute attend la réhydratation et mémorise la destination
 function PrivateRoute({ children }) {
   const { ready, isAuthenticated } = useAuth();
@@ -56,6 +60,10 @@ export default function App() {
           roomId={currentRoomId || undefined}
           color={myColor || undefined}
         />
+        {/* Overlays épurés, positionnés en fixed et indépendants du routing */}
+        <MaterialPill />
+        <CapturedStrip />
+
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />

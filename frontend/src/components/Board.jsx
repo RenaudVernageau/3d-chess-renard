@@ -104,7 +104,6 @@ export default forwardRef(function Board(
       try {
         move({ from, to });
         // Après l'application d'un coup distant, on re-check la fin de partie
-        // (useEffect/maybeNotifyGameOver se déclenchera aussi via gameOver)
         maybeNotifyGameOver();
       } catch (e) {
         console.warn("[Board] move() a rejeté le coup:", { from, to }, e);
@@ -146,11 +145,32 @@ export default forwardRef(function Board(
     [selected, getLegalMoves]
   );
 
+  // Helper : détection promotion locale (pour enrichir l'emit V2)
+  const detectPromotion = useCallback(
+    (fromSq, toSq) => {
+      const fromRank = Number(fromSq[1]);
+      const toRank = Number(toSq[1]);
+      const piece = (() => {
+        // retrouve la pièce sur la case "from" (avant le move)
+        const fileIdx = FILES.indexOf(fromSq[0]);
+        const row = 8 - fromRank;
+        return board[row]?.[fileIdx] || null;
+      })();
+      if (!piece || piece.type !== "p") return undefined;
+      // Blanc promeut en 8, Noir en 1
+      if (piece.color === "w" && toRank === 8) return "q";
+      if (piece.color === "b" && toRank === 1) return "q";
+      return undefined;
+    },
+    [board]
+  );
+
   // ——— Gestion des clics ———
   const handleClick = useCallback(
     (r, c) => {
       if (disabled) return; // bloque les interactions si la partie est finie
-      // Respect du tour local
+
+      // Respect du tour local (côté client) — le serveur reste autoritatif
       const myTurn = color === "white" ? "w" : "b";
       if (turn !== myTurn) return;
 
@@ -173,31 +193,48 @@ export default forwardRef(function Board(
 
       // Coup légal (move ou capture)
       if (legal.includes(sq)) {
-        // Applique localement
+        // Détecte promotion pour l'emit V2
+        const promotion = detectPromotion(selected, sq);
+
+        // Applique localement (optimiste)
         try {
-          move({ from: selected, to: sq });
-          // Vérifie la fin de partie après le coup
+          move({ from: selected, to: sq, promotion });
           maybeNotifyGameOver();
         } catch (e) {
           console.warn(
             "[Board] move() local a échoué:",
-            { from: selected, to: sq },
+            { from: selected, to: sq, promotion },
             e
           );
           setSelected(null);
           return;
         }
 
-        // Diffuse via WS
+        // Diffuse via WS (V2 serveur autoritatif)
         if (socket && roomId) {
-          const payload = { roomId, move: { from: selected, to: sq }, color };
-          socket.emit("move_piece", payload);
+          socket.emit("move_piece", {
+            roomId,
+            move: { from: selected, to: sq, promotion },
+            color, // "white" | "black"
+          });
         }
       }
 
       setSelected(null);
     },
-    [board, selected, legal, move, turn, socket, roomId, color, disabled, maybeNotifyGameOver]
+    [
+      board,
+      selected,
+      legal,
+      move,
+      turn,
+      socket,
+      roomId,
+      color,
+      disabled,
+      maybeNotifyGameOver,
+      detectPromotion,
+    ]
   );
 
   // Mise en évidence du roi en échec (animation)

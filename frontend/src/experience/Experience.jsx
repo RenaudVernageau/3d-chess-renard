@@ -18,7 +18,7 @@ export default function Experience() {
   const [players, setPlayers] = useState([]);
   const [color, setColor] = useState(null); // "white" | "black"
   const [peerQuit, setPeerQuit] = useState(false);
-  const [gameOver, setGameOver] = useState(null); // { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
+  const [gameOver, setGameOver] = useState(null); // { reason, winner }
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
@@ -49,6 +49,9 @@ export default function Experience() {
     setPlayers(arr);
     setGameUi({ players: names });
   };
+
+  const sideToHumanColor = (side /* 'w'|'b' */) =>
+    side === "w" ? "white" : side === "b" ? "black" : undefined;
 
   // Attache les listeners WS
   useEffect(() => {
@@ -99,7 +102,7 @@ export default function Experience() {
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
-      lastAppliedMoveCount.current = Math.max(lastAppliedMoveCount.current + 1, lastAppliedMoveCount.current);
+      lastAppliedMoveCount.current = lastAppliedMoveCount.current + 1;
     };
 
     const handleTurnUpdate = ({ activeColor }) => {
@@ -117,7 +120,7 @@ export default function Experience() {
       }
     };
 
-    // ✅ Re-synchronisation depuis le serveur
+    // ✅ Re-synchronisation depuis le serveur (compat historique)
     const handleStateSync = (state) => {
       try {
         const moves = Array.isArray(state?.moves) ? state.moves : [];
@@ -126,6 +129,12 @@ export default function Experience() {
         if (fen && typeof boardRef.current?.loadFen === "function") {
           boardRef.current.loadFen(fen);
           lastAppliedMoveCount.current = moves.length;
+          // Si le serveur envoie le tour au format 'w'/'b'
+          if (state?.turn) {
+            const active = sideToHumanColor(state.turn);
+            const myColorNow = useGameUiStore.getState().myColor || color;
+            if (active) setGameUi({ turnColor: active, myTurn: myColorNow === active });
+          }
           return;
         }
         const already = lastAppliedMoveCount.current || 0;
@@ -143,9 +152,26 @@ export default function Experience() {
       }
     };
 
-    // (Optionnel) si un jour le serveur émet un 'game_over'
+    // ✅ Nouveau : snapshot autoritatif (V2)
+    const handleGameSnapshot = (snap) => {
+      try {
+        const fen = typeof snap?.fen === "string" ? snap.fen : null;
+        if (fen && typeof boardRef.current?.loadFen === "function") {
+          boardRef.current.loadFen(fen);
+        }
+        if (snap?.turn) {
+          const active = sideToHumanColor(snap.turn);
+          const myColorNow = useGameUiStore.getState().myColor || color;
+          if (active) setGameUi({ turnColor: active, myTurn: myColorNow === active });
+        }
+        // movesCount dispo si besoin : snap.movesCount
+      } catch (e) {
+        console.warn("[WS] game:snapshot apply error:", e);
+      }
+    };
+
+    // (Optionnel) fin de partie depuis serveur
     const handleGameOverServer = (payload) => {
-      // payload attendu: { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
       setGameOver(payload || { reason: "unknown", winner: null });
     };
 
@@ -156,6 +182,7 @@ export default function Experience() {
     on("turn_update", handleTurnUpdate);
     on("room_peer_quit", handlePeerQuit);
     on("state_sync", handleStateSync);
+    on("game:snapshot", handleGameSnapshot);
     on("game_over", handleGameOverServer);
     on("error", handleServerError);
 
@@ -180,11 +207,12 @@ export default function Experience() {
       off("turn_update", handleTurnUpdate);
       off("room_peer_quit", handlePeerQuit);
       off("state_sync", handleStateSync);
+      off("game:snapshot", handleGameSnapshot);
       off("game_over", handleGameOverServer);
       off("error", handleServerError);
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
-      // on laisse lastAppliedMoveCount pour permettre une reprise rapide
+      // on garde lastAppliedMoveCount pour une reprise rapide
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
 
@@ -235,13 +263,11 @@ export default function Experience() {
     navigate("/lobby", { replace: true });
   };
 
-  // ✅ Nouveau : gestion fin de partie (checkmate / etc.)
+  // Fin de partie locale (si détectée dans Board)
   const handleGameOverLocal = (payload) => {
-    // payload: { reason: 'checkmate'|'stalemate'|'draw'|'resign', winner: 'white'|'black'|null }
     setGameOver(payload || { reason: "unknown", winner: null });
   };
 
-  // Modal "adversaire a quitté"
   const peerQuitModal = peerQuit ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-[90%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
@@ -271,7 +297,6 @@ export default function Experience() {
     </div>
   ) : null;
 
-  // ✅ Nouveau : Modal "fin de partie"
   const gameOverModal = gameOver ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-[92%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
@@ -296,7 +321,6 @@ export default function Experience() {
         <div className="flex justify-end gap-3">
           <button
             onClick={() => {
-              // Retour menu + reset UI
               setGameUi({
                 currentRoomId: null,
                 myColor: undefined,
@@ -316,7 +340,6 @@ export default function Experience() {
     </div>
   ) : null;
 
-  // Bouton "Quitter la partie"
   const quitButton = (
     <div className="absolute top-2 right-2 z-40">
       <button
@@ -349,8 +372,8 @@ export default function Experience() {
               socket={socket}
               roomId={roomId}
               color={color}
-              disabled={!!gameOver}           // ⬅️ bloque les coups après fin de partie
-              onGameOver={handleGameOverLocal} // ⬅️ remonte la fin de partie
+              disabled={!!gameOver}
+              onGameOver={handleGameOverLocal}
             />
           </Suspense>
         </Canvas>
