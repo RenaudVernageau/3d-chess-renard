@@ -20,7 +20,6 @@ import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
 // 🔹 overlays (nouveaux composants très discrets)
-import MaterialPill from "./components/MaterialPill";
 import CapturedStrip from "./components/CapturedStrip";
 
 // PrivateRoute attend la réhydratation et mémorise la destination

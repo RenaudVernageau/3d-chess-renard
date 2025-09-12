@@ -7,6 +7,7 @@ import useWebSocket from "../hooks/useWebSocket";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
 import Board from "../components/Board.jsx";
+import MaterialPill from "../components/MaterialPill"; // ⬅️ ajout
 import { useGameUiStore } from "../store/useGameUiStore";
 
 export default function Experience() {
@@ -129,7 +130,6 @@ export default function Experience() {
         if (fen && typeof boardRef.current?.loadFen === "function") {
           boardRef.current.loadFen(fen);
           lastAppliedMoveCount.current = moves.length;
-          // Si le serveur envoie le tour au format 'w'/'b'
           if (state?.turn) {
             const active = sideToHumanColor(state.turn);
             const myColorNow = useGameUiStore.getState().myColor || color;
@@ -152,7 +152,7 @@ export default function Experience() {
       }
     };
 
-    // ✅ Nouveau : snapshot autoritatif (V2)
+    // ✅ Snapshot autoritatif (V2)
     const handleGameSnapshot = (snap) => {
       try {
         const fen = typeof snap?.fen === "string" ? snap.fen : null;
@@ -164,13 +164,11 @@ export default function Experience() {
           const myColorNow = useGameUiStore.getState().myColor || color;
           if (active) setGameUi({ turnColor: active, myTurn: myColorNow === active });
         }
-        // movesCount dispo si besoin : snap.movesCount
       } catch (e) {
         console.warn("[WS] game:snapshot apply error:", e);
       }
     };
 
-    // (Optionnel) fin de partie depuis serveur
     const handleGameOverServer = (payload) => {
       setGameOver(payload || { reason: "unknown", winner: null });
     };
@@ -212,16 +210,13 @@ export default function Experience() {
       off("error", handleServerError);
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
-      // on garde lastAppliedMoveCount pour une reprise rapide
     };
   }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
 
-  // Publie ma couleur si définie
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
   }, [color, setGameUi]);
 
-  // Rejoindre si retour onglet
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
@@ -249,7 +244,6 @@ export default function Experience() {
     );
   }
 
-  // Quitter volontairement
   const handleQuitGame = () => {
     if (roomId) emit("room_quit", { roomId });
     setGameUi({
@@ -263,7 +257,6 @@ export default function Experience() {
     navigate("/lobby", { replace: true });
   };
 
-  // Fin de partie locale (si détectée dans Board)
   const handleGameOverLocal = (payload) => {
     setGameOver(payload || { reason: "unknown", winner: null });
   };
@@ -355,6 +348,11 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <div className="flex-1 relative">
+        {/* pastille à gauche, alignée verticalement avec le bouton à droite */}
+        <div className="absolute top-2 left-2 z-40">
+          <MaterialPill />
+        </div>
+
         {quitButton}
         {peerQuitModal}
         {gameOverModal}
