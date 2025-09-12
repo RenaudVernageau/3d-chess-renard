@@ -14,23 +14,20 @@ export function UsersList() {
     fetchUsers();
   }, []);
 
-  const handleSearch = e => setFilter(e.target.value);
-  const handleSort   = e => setSortKey(e.target.value);
+  const handleSearch = (e) => setFilter(e.target.value);
+  const handleSort   = (e) => setSortKey(e.target.value);
 
   const sorted = [...users]
-    .filter(u => u.username.toLowerCase().includes(filter.toLowerCase()))
+    .filter((u) => (u?.username || '').toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => {
-      if (sortKey === 'alphabetical') {
-        return a.username.localeCompare(b.username);
-      }
-      if (sortKey === 'recent') {
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      }
+      if (sortKey === 'alphabetical') return (a.username || '').localeCompare(b.username || '');
+      if (sortKey === 'recent') return new Date(b.createdAt) - new Date(a.createdAt);
       return 0;
     });
 
-  const handleMessage = otherId => {
-    navigate(`/messages?user=${otherId}`);
+  const handleMessage = (otherId) => {
+    if (!otherId) return;
+    navigate(`/messages?user=${encodeURIComponent(String(otherId))}`);
   };
 
   return (
@@ -65,34 +62,51 @@ export function UsersList() {
         </div>
 
         <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
-          {sorted.map(u => (
-            <li
-              key={u._id}
-              className="bg-stone-700 hover:bg-stone-600 transition rounded p-3 flex items-center"
-            >
-              <NavLink
-                to={`/users/${u._id}`}
-                className="flex items-center space-x-4 flex-1"
-              >
+          {sorted.map((u, i) => {
+            const userId = u?._id ?? u?.id;
+            const encodedId = userId ? encodeURIComponent(String(userId)) : null;
+            const avatar = u?.avatarUrl || u?.avatar || '/default-avatar.jpg';
+
+            const RowContent = (
+              <>
                 <img
-                  src={u.avatarUrl || '/default-avatar.jpg'}
-                  alt={u.username}
+                  src={avatar}
+                  alt={u?.username || 'Utilisateur'}
                   className="w-12 h-12 rounded-full object-cover"
+                  onError={(e) => { e.currentTarget.src = '/default-avatar.jpg'; }}
                 />
                 <div>
-                  <p className="font-medium">{u.username}</p>
-                  <p className="text-sm text-stone-400 truncate">{u.email}</p>
+                  <p className="font-medium">{u?.username || '—'}</p>
+                  <p className="text-sm text-stone-400 truncate">{u?.email || ''}</p>
                 </div>
-              </NavLink>
+              </>
+            );
 
-              <button
-                onClick={() => handleMessage(u._id)}
-                className="ml-4 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center"
+            return (
+              <li
+                key={userId ?? i}
+                className="bg-stone-700 hover:bg-stone-600 transition rounded p-3 flex items-center"
               >
-                <FiMessageCircle className="mr-1" /> Message
-              </button>
-            </li>
-          ))}
+                {encodedId ? (
+                  <NavLink to={`/users/${encodedId}`} className="flex items-center space-x-4 flex-1">
+                    {RowContent}
+                  </NavLink>
+                ) : (
+                  <div className="flex items-center space-x-4 flex-1 opacity-60 cursor-not-allowed">
+                    {RowContent}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => handleMessage(userId)}
+                  disabled={!userId}
+                  className="ml-4 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-1 rounded flex items-center"
+                >
+                  <FiMessageCircle className="mr-1" /> Message
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

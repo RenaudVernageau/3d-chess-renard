@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom"; // ⬅️ NEW
 import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
@@ -18,7 +19,7 @@ export function OwnProfile() {
 
   const [username, setUsername] = useState(initialUsername);
   const [avatarPreview, setAvatarPreview] = useState(initialAvatar);
-  const [avatarFile, setAvatarFile] = useState(null); // fichier réel pour Cloudinary
+  const [avatarFile, setAvatarFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
@@ -60,36 +61,29 @@ export function OwnProfile() {
     try {
       let avatarUrlFinal = initialAvatar;
 
-      // 1) Upload Cloudinary si un fichier a été choisi
       if (hasAvatarChanged) {
-        const sig = await getCloudinarySignature(); // POST /upload/signature
+        const sig = await getCloudinarySignature();
         const up = await uploadFileToCloudinary(avatarFile, sig);
         avatarUrlFinal = up.secure_url;
       }
 
-      // 2) Envoi au back : ⚠️ on envoie "avatar" (pas avatarUrl)
       const payload = {};
       if (hasUsernameChanged && username.trim()) payload.username = username.trim();
       if (hasAvatarChanged) payload.avatar = avatarUrlFinal;
 
-      // -> { id, username, email, avatar }
       const updated = await updateMeApi(payload);
 
-      // 3) Mise à jour du contexte Auth + localStorage
       if (typeof updateUser === "function") {
         updateUser({
           username: updated.username,
           email: updated.email || user?.email || "",
-          // Le back renvoie "avatar"
           avatar: updated.avatar || avatarUrlFinal || "",
         });
       } else {
-        // fallback (rare) : on synchronise localStorage
         if (updated?.username) localStorage.setItem("username", updated.username);
         if (updated?.avatar) localStorage.setItem("avatar", updated.avatar);
       }
 
-      // 4) Ajuster la prévisualisation (miniature Cloudinary 128px)
       const finalUrl = updated.avatar || avatarUrlFinal || "";
       setAvatarPreview(makeAvatarUrl(finalUrl, 128));
       setAvatarFile(null);
@@ -111,15 +105,12 @@ export function OwnProfile() {
       >
         <h2 className="text-xl font-bold mb-4 text-center">Mon profil</h2>
 
-        {/* Avatar */}
         <div className="flex flex-col items-center mb-4">
           <img
             src={avatarPreview || "/default-avatar.jpg"}
             alt={`Avatar de ${username || "moi"}`}
             className="w-20 h-20 rounded-full object-cover mb-2 ring-2 ring-stone-600"
-            onError={(e) => {
-              e.currentTarget.src = "/default-avatar.jpg";
-            }}
+            onError={(e) => { e.currentTarget.src = "/default-avatar.jpg"; }}
           />
           <label className="cursor-pointer text-blue-400 hover:underline">
             Changer la photo
@@ -132,7 +123,6 @@ export function OwnProfile() {
           </label>
         </div>
 
-        {/* Username */}
         <label className="block mb-2">
           <span className="text-sm text-stone-300">Nom d’utilisateur</span>
           <input
@@ -176,24 +166,35 @@ export function OwnProfile() {
 
 /* -------- Profil d’un autre utilisateur (affichage) -------- */
 export function UserProfile({ id: propId }) {
+  // ⬇️ récupère l'id soit via prop (ancien usage), soit via l'URL /users/:id
+  const { id: routeId } = useParams();
+  const id = propId || routeId;
+
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     let mounted = true;
+
+    // garde-fou si l'id est absent ou "undefined"
+    if (!id || id === "undefined") {
+      setErr("ID utilisateur invalide.");
+      setData(null);
+      return () => {};
+    }
+
     (async () => {
       try {
-        const res = await fetchUserById(propId);
+        const res = await fetchUserById(id);
         if (mounted) setData(res);
       } catch (e) {
         console.error(e);
-        if (mounted) setErr("Erreur lors du chargement");
+        if (mounted) setErr("Impossible de charger cet utilisateur.");
       }
     })();
-    return () => {
-      mounted = false;
-    };
-  }, [propId]);
+
+    return () => { mounted = false; };
+  }, [id]);
 
   if (err) {
     return (
@@ -217,9 +218,7 @@ export function UserProfile({ id: propId }) {
           src={makeAvatarUrl(data.avatar || "/default-avatar.jpg", 128)}
           alt={data.username}
           className="w-24 h-24 rounded-full object-cover ring-2 ring-stone-600"
-          onError={(e) => {
-            e.currentTarget.src = "/default-avatar.jpg";
-          }}
+          onError={(e) => { e.currentTarget.src = "/default-avatar.jpg"; }}
         />
         <h3 className="text-lg font-semibold">{data.username}</h3>
         <p className="text-stone-400 text-sm">{data.email}</p>
