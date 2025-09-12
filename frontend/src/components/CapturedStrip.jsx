@@ -38,8 +38,8 @@ export default function CapturedStrip() {
   return (
     <div className="fixed left-4 bottom-4 z-40 p-2 rounded-2xl bg-white/40 backdrop-blur-sm shadow
                     flex flex-col gap-1 text-gray-900">
-      {Object.keys(wCounts).length ? <Row title="White" counts={wCounts} /> : null}
-      {Object.keys(bCounts).length ? <Row title="Black" counts={bCounts} /> : null}
+      {Object.keys(wCounts).length ? <Row title="Blancs" counts={wCounts} /> : null}
+      {Object.keys(bCounts).length ? <Row title="Noirs" counts={bCounts} /> : null}
     </div>
   );
 }
