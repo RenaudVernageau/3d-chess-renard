@@ -31,3 +31,6 @@ export const updateUser = (id, { username, avatar }) =>
   });
 
 export const deleteUser = (id) => api(`/users/${id}`, { method: "DELETE" });
+
+export const setUserRole = (id, role) =>
+  api(`/users/${id}/role`, { method: "PATCH", body: { role } });

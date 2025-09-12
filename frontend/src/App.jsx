@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import React, { useEffect } from "react";
 import {
   HashRouter as Router,
@@ -13,35 +12,32 @@ import NavBar from "./components/NavBar";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
-import { OwnProfile, UserProfile } from "./components/Profile";
+import { OwnProfile } from "./components/Profile"; // ⬅️ on n’importe plus UserProfile ici
 import { UsersList } from "./components/UsersList";
+import UserPage from "./components/UserPage"; // ⬅️ nouveau
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
 
-// 🔹 overlays (nouveaux composants très discrets)
+// Overlays
 import CapturedStrip from "./components/CapturedStrip";
 
-// PrivateRoute attend la réhydratation et mémorise la destination
 function PrivateRoute({ children }) {
   const { ready, isAuthenticated } = useAuth();
   const location = useLocation();
 
   if (!ready) {
-    return (
-      <div className="p-4 text-center text-white bg-black">
-        Loading…
-      </div>
-    );
+    return <div className="p-4 text-center text-white bg-black">Loading…</div>;
   }
-
-  return isAuthenticated
-    ? children
-    : <Navigate to="/login" replace state={{ from: location }} />;
+  return isAuthenticated ? (
+    children
+  ) : (
+    <Navigate to="/login" replace state={{ from: location }} />
+  );
 }
 
 export default function App() {
-  // 🔧 Normalise l'URL si on arrive sans hash (ex: /play/1234) pour éviter /play/...#/play/...
+  // normalisation hash
   useEffect(() => {
     const hasHash = !!window.location.hash;
     const path = window.location.pathname;
@@ -52,6 +48,7 @@ export default function App() {
   }, []);
 
   const { currentRoomId, myColor } = useGameUiStore();
+
   return (
     <AuthProvider>
       <Router>
@@ -62,11 +59,11 @@ export default function App() {
         <CapturedStrip />
 
         <Routes>
-          {/* Public routes */}
+          {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Protected routes */}
+          {/* Protected */}
           <Route
             path="/lobby"
             element={
@@ -103,7 +100,7 @@ export default function App() {
             path="/users/:id"
             element={
               <PrivateRoute>
-                <UserProfile />
+                <UserPage />
               </PrivateRoute>
             }
           />
