@@ -1,6 +1,6 @@
 // frontend/src/components/MaterialPill.jsx
 import React from "react";
-import { useGameUiStore } from "../../store/useGameUiStore";
+import { useGameUiStore } from "../store/useGameUiStore";
 
 export default function MaterialPill() {
   const diff = useGameUiStore((s) => s.materialDiff());

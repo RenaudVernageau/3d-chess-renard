@@ -1,6 +1,6 @@
 // frontend/src/components/CapturedStrip.jsx
 import React, { useMemo } from "react";
-import { useGameUiStore } from "../../store/useGameUiStore";
+import { useGameUiStore } from "../store/useGameUiStore";
 
 const glyph = { p:'♟', n:'♞', b:'♝', r:'♜', q:'♛' };
 const order = ['q','r','b','n','p'];
