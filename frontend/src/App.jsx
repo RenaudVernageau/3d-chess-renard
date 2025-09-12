@@ -18,6 +18,7 @@ import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
+import MaterialPill from "./components/MaterialPill";
 
 // 🔹 overlays (nouveaux composants très discrets)
 import CapturedStrip from "./components/CapturedStrip";
