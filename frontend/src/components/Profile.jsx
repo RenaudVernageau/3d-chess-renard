@@ -103,11 +103,11 @@ export function OwnProfile() {
   };
 
   return (
-    <div className="flex items-center justify-center p-6">
+    <div className="flex items-center justify-center min-h-screen p-6">
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="w-full max-w-sm bg-stone-900 text-stone-100 p-6 rounded-xl border border-stone-700"
+            className="w-full max-w-sm bg-stone-900 text-stone-100 p-6 rounded-xl border border-stone-700"
       >
         <h2 className="text-xl font-bold mb-4 text-center">Mon profil</h2>
 
