@@ -4,7 +4,10 @@ import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
 import { getCloudinarySignature } from "../api/upload";
-import { uploadFileToCloudinary, makeAvatarUrl } from "../utils/cloudinaryUpload";
+import {
+  uploadFileToCloudinary,
+  makeAvatarUrl,
+} from "../utils/cloudinaryUpload";
 
 /* --- Helpers API locaux (lecture profil d'un autre user) --- */
 async function fetchUserById(userId) {
@@ -68,7 +71,8 @@ export function OwnProfile() {
       }
 
       const payload = {};
-      if (hasUsernameChanged && username.trim()) payload.username = username.trim();
+      if (hasUsernameChanged && username.trim())
+        payload.username = username.trim();
       if (hasAvatarChanged) payload.avatar = avatarUrlFinal;
 
       const updated = await updateMeApi(payload);
@@ -80,7 +84,8 @@ export function OwnProfile() {
           avatar: updated.avatar || avatarUrlFinal || "",
         });
       } else {
-        if (updated?.username) localStorage.setItem("username", updated.username);
+        if (updated?.username)
+          localStorage.setItem("username", updated.username);
         if (updated?.avatar) localStorage.setItem("avatar", updated.avatar);
       }
 
@@ -234,11 +239,13 @@ export function UserProfile({ id: propId }) {
         {/* Bouton d'accès direct à la messagerie */}
         <button
           type="button"
-          onClick={() => navigate(`/messages?user=${encodeURIComponent(String(id))}`)}
-          className="mt-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm"
+          onClick={() =>
+            navigate(`/messages?user=${encodeURIComponent(String(id))}`)
+          }
+          className="ml-4 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-1 rounded flex items-center"
           title={`Envoyer un message à ${data.username}`}
         >
-          Envoyer un message
+          <FiMessageCircle className="mr-1" /> Message
         </button>
       </div>
     </div>
