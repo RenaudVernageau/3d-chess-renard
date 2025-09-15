@@ -5,7 +5,10 @@ import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
 import { getCloudinarySignature } from "../api/upload";
-import { uploadFileToCloudinary, makeAvatarUrl } from "../utils/cloudinaryUpload";
+import {
+  uploadFileToCloudinary,
+  makeAvatarUrl,
+} from "../utils/cloudinaryUpload";
 
 /* --- Helpers API locaux (lecture profil d'un autre user) --- */
 async function fetchUserById(userId) {
@@ -69,7 +72,8 @@ export function OwnProfile() {
       }
 
       const payload = {};
-      if (hasUsernameChanged && username.trim()) payload.username = username.trim();
+      if (hasUsernameChanged && username.trim())
+        payload.username = username.trim();
       if (hasAvatarChanged) payload.avatar = avatarUrlFinal;
 
       const updated = await updateMeApi(payload);
@@ -81,7 +85,8 @@ export function OwnProfile() {
           avatar: updated.avatar || avatarUrlFinal || "",
         });
       } else {
-        if (updated?.username) localStorage.setItem("username", updated.username);
+        if (updated?.username)
+          localStorage.setItem("username", updated.username);
         if (updated?.avatar) localStorage.setItem("avatar", updated.avatar);
       }
 
@@ -215,9 +220,8 @@ export function UserProfile({ id: propId }) {
     );
   }
 
-  // Styles alignés sur UsersList : carte sombre, coins arrondis, bouton vert + icône
   return (
-    <div className="flex items-center justify-center min-h-screen p-6">
+    <div className="flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-stone-800 text-white rounded-2xl border border-stone-700 p-8 shadow text-center">
         <div className="flex flex-col items-center space-y-4">
           <img
@@ -235,12 +239,13 @@ export function UserProfile({ id: propId }) {
 
           <button
             type="button"
-            onClick={() => navigate(`/messages?user=${encodeURIComponent(String(id))}`)}
-            className="mt-2 inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+            onClick={() =>
+              navigate(`/messages?user=${encodeURIComponent(String(id))}`)
+            }
+            className="ml-4 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-1 rounded flex items-center"
             title={`Envoyer un message à ${data.username}`}
           >
-            <FiMessageCircle className="text-lg" />
-            <span>Message</span>
+            <FiMessageCircle className="mr-1" /> Message
           </button>
         </div>
       </div>
