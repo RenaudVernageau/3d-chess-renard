@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom"; // ⬅️ useNavigate ajouté
+import { FiMessageCircle } from "react-icons/fi"; // icône bouton
 import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
