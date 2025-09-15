@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FiMessageCircle } from "react-icons/fi"; // ⬅️ icône bouton
+import { FiMessageCircle } from "react-icons/fi"; // icône bouton
 import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
@@ -215,10 +215,10 @@ export function UserProfile({ id: propId }) {
     );
   }
 
-  // ⬇️ Styles alignés sur UsersList : carte sombre, coins arrondis, bouton vert + icône
+  // Styles alignés sur UsersList : carte sombre, coins arrondis, bouton vert + icône
   return (
-    <div className="flex justify-center p-6">
-      <div className="w-full max-w-2xl bg-stone-800 text-white rounded-2xl border border-stone-700 p-8 shadow">
+    <div className="flex items-center justify-center min-h-screen p-6">
+      <div className="w-full max-w-md bg-stone-800 text-white rounded-2xl border border-stone-700 p-8 shadow text-center">
         <div className="flex flex-col items-center space-y-4">
           <img
             src={makeAvatarUrl(data.avatar || "/default-avatar.jpg", 128)}
