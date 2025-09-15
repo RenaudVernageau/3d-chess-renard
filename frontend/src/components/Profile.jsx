@@ -224,30 +224,32 @@ export function UserProfile({ id: propId }) {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-stone-900 border border-stone-700 rounded-xl text-stone-100">
-      <div className="flex flex-col items-center gap-3">
-        <img
-          src={makeAvatarUrl(data.avatar || "/default-avatar.jpg", 128)}
-          alt={data.username}
-          className="w-24 h-24 rounded-full object-cover ring-2 ring-stone-600"
-          onError={(e) => {
-            e.currentTarget.src = "/default-avatar.jpg";
-          }}
-        />
-        <h3 className="text-lg font-semibold">{data.username}</h3>
-        <p className="text-stone-400 text-sm">{data.email}</p>
+    <div className="flex items-center justify-center min-h-screen p-6">
+      <div className="w-full max-w-md bg-stone-900 border border-stone-700 rounded-xl text-stone-100 p-6">
+        <div className="flex flex-col items-center gap-3">
+          <img
+            src={makeAvatarUrl(data.avatar || "/default-avatar.jpg", 128)}
+            alt={data.username}
+            className="w-24 h-24 rounded-full object-cover ring-2 ring-stone-600"
+            onError={(e) => {
+              e.currentTarget.src = "/default-avatar.jpg";
+            }}
+          />
+          <h3 className="text-lg font-semibold">{data.username}</h3>
+          <p className="text-stone-400 text-sm">{data.email}</p>
 
-        {/* Bouton d'accès direct à la messagerie */}
-        <button
-          type="button"
-          onClick={() =>
-            navigate(`/messages?user=${encodeURIComponent(String(id))}`)
-          }
-          className="ml-4 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-3 py-1 rounded flex items-center"
-          title={`Envoyer un message à ${data.username}`}
-        >
-          <FiMessageCircle className="mr-1" /> Message
-        </button>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/messages?user=${encodeURIComponent(String(id))}`)
+            }
+            className="mt-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2 rounded flex items-center gap-2"
+            title={`Envoyer un message à ${data.username}`}
+          >
+            <FiMessageCircle className="text-lg" />
+            <span>Message</span>
+          </button>
+        </div>
       </div>
     </div>
   );
