@@ -59,17 +59,17 @@ exports.getUserById = async (req, res) => {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
+    // ❗ Correction: on utilise uniquement une projection en INCLUSION
+    // et on retire les populate qui ne sont pas nécessaires pour "photo + username"
     const user = await User.findById(id)
-      .select("-password username email avatar avatarUrl createdAt")
-      .populate("friends", "username avatar avatarUrl")
-      .populate("friendRequests.from", "username avatar avatarUrl")
+      .select("username email avatar avatarUrl createdAt")
       .lean();
 
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(toPublicUser(user));
+    return res.json(toPublicUser(user));
   } catch (err) {
     console.error("getUserById error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
