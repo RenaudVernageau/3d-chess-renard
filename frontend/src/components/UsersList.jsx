@@ -12,7 +12,7 @@ export function UsersList() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const handleSearch = (e) => setFilter(e.target.value);
   const handleSort   = (e) => setSortKey(e.target.value);

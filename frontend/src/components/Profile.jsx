@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom"; // ⬅️ NEW
+import { useParams, useNavigate } from "react-router-dom"; // ⬅️ useNavigate ajouté
 import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
@@ -110,7 +110,9 @@ export function OwnProfile() {
             src={avatarPreview || "/default-avatar.jpg"}
             alt={`Avatar de ${username || "moi"}`}
             className="w-20 h-20 rounded-full object-cover mb-2 ring-2 ring-stone-600"
-            onError={(e) => { e.currentTarget.src = "/default-avatar.jpg"; }}
+            onError={(e) => {
+              e.currentTarget.src = "/default-avatar.jpg";
+            }}
           />
           <label className="cursor-pointer text-blue-400 hover:underline">
             Changer la photo
@@ -170,6 +172,8 @@ export function UserProfile({ id: propId }) {
   const { id: routeId } = useParams();
   const id = propId || routeId;
 
+  const navigate = useNavigate(); // ⬅️ pour le bouton "Envoyer un message"
+
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
 
@@ -193,7 +197,9 @@ export function UserProfile({ id: propId }) {
       }
     })();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
   if (err) {
@@ -218,10 +224,22 @@ export function UserProfile({ id: propId }) {
           src={makeAvatarUrl(data.avatar || "/default-avatar.jpg", 128)}
           alt={data.username}
           className="w-24 h-24 rounded-full object-cover ring-2 ring-stone-600"
-          onError={(e) => { e.currentTarget.src = "/default-avatar.jpg"; }}
+          onError={(e) => {
+            e.currentTarget.src = "/default-avatar.jpg";
+          }}
         />
         <h3 className="text-lg font-semibold">{data.username}</h3>
         <p className="text-stone-400 text-sm">{data.email}</p>
+
+        {/* Bouton d'accès direct à la messagerie */}
+        <button
+          type="button"
+          onClick={() => navigate(`/messages?user=${encodeURIComponent(String(id))}`)}
+          className="mt-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm"
+          title={`Envoyer un message à ${data.username}`}
+        >
+          Envoyer un message
+        </button>
       </div>
     </div>
   );

@@ -12,9 +12,8 @@ import NavBar from "./components/NavBar";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
-import { OwnProfile } from "./components/Profile"; // ⬅️ on n’importe plus UserProfile ici
+import { OwnProfile, UserProfile } from "./components/Profile";
 import { UsersList } from "./components/UsersList";
-import UserPage from "./components/UserPage"; // ⬅️ nouveau
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
@@ -100,7 +99,7 @@ export default function App() {
             path="/users/:id"
             element={
               <PrivateRoute>
-                <UserPage />
+                <UserProfile />
               </PrivateRoute>
             }
           />
