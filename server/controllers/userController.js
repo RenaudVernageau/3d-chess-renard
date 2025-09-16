@@ -12,6 +12,8 @@ function toPublicUser(u) {
     email: u.email,
     avatar,
     createdAt: u.createdAt,
+    role: u.role || "user",
+    isSuspended: !!u.isSuspended,
   };
 }
 
@@ -23,7 +25,7 @@ exports.getMe = async (req, res) => {
       return res.status(401).json({ message: "Not authenticated" });
 
     const me = await User.findById(authUserId)
-      .select("username email avatar avatarUrl createdAt")
+      .select("username email avatar avatarUrl createdAt role isSuspended")
       .lean();
 
     if (!me) return res.status(404).json({ message: "User not found" });
@@ -38,7 +40,7 @@ exports.getMe = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
-      .select("username email avatar avatarUrl createdAt")
+      .select("username email avatar avatarUrl createdAt role isSuspended")
       .sort({ username: 1 })
       .lean();
 
@@ -53,16 +55,12 @@ exports.getAllUsers = async (req, res) => {
 exports.getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Evite les 500 si l'id n'est pas un ObjectId
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ message: "Invalid user id" });
     }
 
-    // ❗ Correction: on utilise uniquement une projection en INCLUSION
-    // et on retire les populate qui ne sont pas nécessaires pour "photo + username"
     const user = await User.findById(id)
-      .select("username email avatar avatarUrl createdAt")
+      .select("username email avatar avatarUrl createdAt role isSuspended")
       .lean();
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -74,7 +72,7 @@ exports.getUserById = async (req, res) => {
 };
 
 /* ---------- facteur commun de mise à jour ---------- */
-async function applyUserUpdates({ targetUserId, body }) {
+async function applyUserUpdates({ targetUserId, body, editorRole }) {
   const updates = {};
 
   // username
@@ -89,12 +87,28 @@ async function applyUserUpdates({ targetUserId, body }) {
     updates.username = username;
   }
 
-  // Avatar : on accepte "avatar" ET/OU "avatarUrl", on sauve toujours en avatarUrl (conforme au schéma)
+  // Avatar
   if (typeof body.avatar === "string" && body.avatar.trim()) {
     updates.avatarUrl = body.avatar.trim();
   }
   if (typeof body.avatarUrl === "string" && body.avatarUrl.trim()) {
     updates.avatarUrl = body.avatarUrl.trim();
+  }
+
+  // (admin only) role
+  if (typeof body.role === "string") {
+    if (editorRole !== "admin") {
+      // ignore silently si pas admin
+    } else if (["user", "moderator", "admin"].includes(body.role)) {
+      updates.role = body.role;
+    }
+  }
+
+  // (mod/admin) isSuspended
+  if (typeof body.isSuspended === "boolean") {
+    if (editorRole === "moderator" || editorRole === "admin") {
+      updates.isSuspended = body.isSuspended;
+    }
   }
 
   if (Object.keys(updates).length === 0) {
@@ -107,7 +121,7 @@ async function applyUserUpdates({ targetUserId, body }) {
     new: true,
     runValidators: true,
     context: "query",
-  }).select("username email avatar avatarUrl createdAt");
+  }).select("username email avatar avatarUrl createdAt role isSuspended");
 
   if (!user) {
     const e = new Error("User not found");
@@ -127,6 +141,7 @@ exports.updateMe = async (req, res) => {
     const updated = await applyUserUpdates({
       targetUserId: authUserId,
       body: req.body,
+      editorRole: req.user.role,
     });
     return res.json(toPublicUser(updated));
   } catch (err) {
@@ -143,12 +158,18 @@ exports.updateUser = async (req, res) => {
   try {
     const authUserId = req.user?.id;
     const { id } = req.params;
-    if (!authUserId || String(authUserId) !== String(id)) {
+
+    const isSelf = authUserId && String(authUserId) === String(id);
+    const isMod = ["moderator", "admin"].includes(req.user?.role);
+
+    if (!isSelf && !isMod) {
       return res.status(403).json({ message: "Forbidden" });
     }
+
     const updated = await applyUserUpdates({
       targetUserId: id,
       body: req.body,
+      editorRole: req.user.role,
     });
     return res.json(toPublicUser(updated));
   } catch (err) {
@@ -160,11 +181,37 @@ exports.updateUser = async (req, res) => {
   }
 };
 
+/* ========== PATCH /users/:id/suspend ========== */
+exports.suspendUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isSuspended } = req.body || {};
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid user id" });
+    }
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { isSuspended: !!isSuspended },
+      { new: true, select: "username email avatarUrl createdAt role isSuspended" }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ message: "User not found" });
+    return res.json(toPublicUser(updated));
+  } catch (err) {
+    console.error("suspendUser error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 /* ========== DELETE /users/:id ========== */
 exports.deleteUser = async (req, res) => {
   const authUserId = req.user?.id;
   const { id } = req.params;
-  if (!authUserId || String(authUserId) !== String(id)) {
+
+  const isSelf = authUserId && String(authUserId) === String(id);
+  const isAdmin = req.user?.role === "admin";
+
+  if (!isSelf && !isAdmin) {
     return res.status(403).json({ message: "Forbidden" });
   }
   try {
@@ -176,7 +223,7 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
-/* ========== POST /users/:id/friend-request ========== */
+/* ====== Friend requests (inchangés) ====== */
 exports.sendFriendRequest = async (req, res) => {
   const fromId = req.user?.id;
   const toId = req.params.id;
@@ -207,7 +254,6 @@ exports.sendFriendRequest = async (req, res) => {
   }
 };
 
-/* ========== POST /users/:id/friend-request/respond ========== */
 exports.respondFriendRequest = async (req, res) => {
   const authUserId = req.user?.id;
   const { id } = req.params;

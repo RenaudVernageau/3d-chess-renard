@@ -1,26 +1,49 @@
 // server/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const User = require('../models/User');
 
-module.exports = (req, res, next) => {
+async function auth(req, res, next) {
   const authHeader = req.headers.authorization || "";
-  if (!authHeader.startsWith('Bearer ')) {
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.split(" ")[1] : null;
+  const token = bearer || req.cookies?.token;
+  if (!token) {
     return res.status(401).json({ message: 'Missing or invalid token' });
   }
 
-  const token = authHeader.split(" ")[1] || req.cookies?.token;
   try {
     const payload = jwt.verify(token, config.JWT_SECRET);
-
-    // l’ID peut être dans sub, id ou _id selon ton sign()
     const userId = payload.sub || payload.id || payload._id;
     if (!userId) {
       return res.status(401).json({ message: 'Invalid token payload (no id)' });
     }
 
-    req.user = { id: String(userId), username: payload.username || payload.name || "" };
+    // 🔎 récupère role/isSuspended pour l’auth courante
+    const u = await User.findById(userId).select("role isSuspended username").lean();
+    if (!u) return res.status(401).json({ message: "User not found" });
+    if (u.isSuspended) return res.status(403).json({ message: "Account suspended" });
+
+    req.user = {
+      id: String(userId),
+      username: u.username || payload.username || payload.name || "",
+      role: u.role || "user",
+    };
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
+}
+
+// Helpers middlewares
+auth.requireAuth = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ message: "Not authenticated" });
+  next();
 };
+
+auth.requireRole = (...roles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ message: "Not authenticated" });
+  if (!roles.includes(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+  next();
+};
+
+module.exports = auth;

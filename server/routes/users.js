@@ -1,3 +1,4 @@
+// server/routes/users.js
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -10,6 +11,7 @@ const {
   sendFriendRequest,
   respondFriendRequest,
   updateMe,
+  suspendUser,
 } = require('../controllers/userController');
 
 router.use(auth);
@@ -20,8 +22,16 @@ router.put('/me', updateMe);
 
 router.get('/', getAllUsers);
 router.get('/:id', getUserById);
+
+// update par self, mod, admin (control déjà dans controller)
 router.put('/:id', updateUser);
+
+// suspend (mod/admin)
+router.patch('/:id/suspend', auth.requireRole("moderator", "admin"), suspendUser);
+
+// delete par self ou admin (control déjà dans controller)
 router.delete('/:id', deleteUser);
+
 router.post('/:id/friend-request', sendFriendRequest);
 router.post('/:id/friend-request/respond', respondFriendRequest);
 

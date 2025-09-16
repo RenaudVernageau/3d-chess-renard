@@ -31,6 +31,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // 🔐 Modération
+    role: {
+      type: String,
+      enum: ["user", "moderator", "admin"],
+      default: "user",
+    },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
+
     friends: [
       {
         type: mongoose.Schema.Types.ObjectId,
