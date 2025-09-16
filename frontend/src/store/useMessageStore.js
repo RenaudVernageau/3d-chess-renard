@@ -325,11 +325,18 @@ export const useMessageStore = create((set, get) => ({
 
   hideConversation: async (otherId) => {
     try {
-      await api(`/messages/${otherId}/hide`, { method: "POST" });
+      await api(`/messages/thread/${encodeURIComponent(String(otherId))}/hidden`, {
+        method: "PATCH",
+        body: { hidden: true },
+      });
       set((state) => ({
         conversations: (state.conversations || []).filter(
           (c) => S(c.partner?._id) !== S(otherId)
         ),
+      }));
+
+      set((state) => ({
+        messages: { ...state.messages, [S(otherId)]: [] },
       }));
     } catch (err) {
       console.error("hideConversation error", err);
@@ -338,9 +345,12 @@ export const useMessageStore = create((set, get) => ({
 
   unhideConversation: async (otherId) => {
     try {
-      await api(`/messages/${otherId}/unhide`, { method: "POST" });
-      // Après démasquage, on refetch
-      get().fetchConversations();
+      await api(`/messages/thread/${encodeURIComponent(String(otherId))}/hidden`, {
+        method: "PATCH",
+        body: { hidden: false },
+      });
+
+      await get().fetchConversations();
     } catch (err) {
       console.error("unhideConversation error", err);
     }
