@@ -1,4 +1,3 @@
-// src/components/NavBar.jsx
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
@@ -18,12 +17,12 @@ export default function NavBar() {
   const [copied, setCopied] = useState(false);
 
   // Stores
-  const roomId     = useGameUiStore((s) => s.currentRoomId);
-  const color      = useGameUiStore((s) => s.myColor);
-  const turnColor  = useGameUiStore((s) => s.turnColor);
-  const myTurn     = useGameUiStore((s) => s.myTurn);
-  const players    = useGameUiStore((s) => s.players) || [];
-  const totalUnread = useMessageStore((s) => s.totalUnread());
+  const roomId      = useGameUiStore((s) => s.currentRoomId);
+  const color       = useGameUiStore((s) => s.myColor);
+  const turnColor   = useGameUiStore((s) => s.turnColor);
+  const myTurn      = useGameUiStore((s) => s.myTurn);
+  const players     = useGameUiStore((s) => s.players) || [];
+  const totalUnread = useMessageStore((s) => s.totalUnread()); // 🔔 somme non-lus
 
   if (!user) return null;
 
@@ -90,10 +89,10 @@ export default function NavBar() {
             <span className="text-xl">Immersive Chess ♔</span>
           </Link>
 
-          {/* Burger */}
+          {/* Burger (mobile) avec badge non-lus */}
           <button
             onClick={() => setOpen((v) => !v)}
-            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl
+            className="relative md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl
              bg-stone-800/80 hover:bg-stone-700 active:scale-95 border border-stone-600 shadow-sm
              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-stone-900 transition"
             aria-expanded={open}
@@ -103,6 +102,16 @@ export default function NavBar() {
             <svg viewBox="0 0 24 24" className="h-5 w-5 text-stone-100" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               {open ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
             </svg>
+
+            {/* 🔔 Badge non-lus visible même menu fermé */}
+            {totalUnread > 0 && (
+              <span
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center"
+                title={`${totalUnread} nouveau${totalUnread>1?"x":""} message${totalUnread>1?"s":""}`}
+              >
+                {totalUnread > 99 ? "99+" : totalUnread}
+              </span>
+            )}
           </button>
 
           {/* Liens desktop */}
@@ -121,6 +130,7 @@ export default function NavBar() {
                 src={avatar}
                 alt={username || "Profil"}
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-stone-600/60"
+                onError={(e)=>{ e.currentTarget.src="/default-avatar.jpg"; }}
               />
               <span className="hidden sm:inline">{username || "Mon profil"}</span>
             </Link>
@@ -149,6 +159,7 @@ export default function NavBar() {
                 src={avatar}
                 alt={username || "Profil"}
                 className="w-6 h-6 rounded-full object-cover ring-1 ring-stone-600/60"
+                onError={(e)=>{ e.currentTarget.src="/default-avatar.jpg"; }}
               />
               <span>{username || "Mon profil"}</span>
             </Link>
@@ -156,7 +167,7 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Barre du bas */}
+      {/* Barre du bas (infos partie en cours) */}
       {roomId && (
         <div className="w-full py-2">
           <div className="mx-auto max-w-6xl px-3 sm:px-6">

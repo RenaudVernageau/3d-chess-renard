@@ -41,9 +41,11 @@ export const useMessageStore = create((set, get) => ({
     })),
   clearUnread: (roomId) =>
     set((s) => ({ unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: 0 } })),
+
+  /** Total non-lus (utilisé pour le badge burger/menus) */
   totalUnread: () => {
     const map = get().unreadByRoom || {};
-    return Object.values(map).reduce((a, b) => a + (b || 0), 0);
+    return Object.values(map).reduce((a, b) => a + (Number(b) || 0), 0);
   },
 
   /** --- REST --- */
