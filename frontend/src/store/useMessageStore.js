@@ -3,9 +3,11 @@ import api from "../api";
 
 /** Helpers */
 const S = (v) => (v == null ? "" : String(v));
-const byAscDate = (a, b) => new Date(a?.createdAt || 0) - new Date(b?.createdAt || 0);
+const byAscDate = (a, b) =>
+  new Date(a?.createdAt || 0) - new Date(b?.createdAt || 0);
 const byDescDate = (a, b) =>
-  new Date(b?.lastMessage?.createdAt || 0) - new Date(a?.lastMessage?.createdAt || 0);
+  new Date(b?.lastMessage?.createdAt || 0) -
+  new Date(a?.lastMessage?.createdAt || 0);
 
 /** Déduit l'autre participant d'un message + propose un partner non destructif */
 const pickPartnerFromMsg = (msg, myId) => {
@@ -18,26 +20,31 @@ const pickPartnerFromMsg = (msg, myId) => {
     otherId,
     partner: {
       _id: otherId,
-      username: from === me ? (msg?.toName || "") : (msg?.fromName || ""),
-      avatarUrl: from === me ? (msg?.toAvatar || "") : (msg?.fromAvatar || ""),
+      username: from === me ? msg?.toName || "" : msg?.fromName || "",
+      avatarUrl: from === me ? msg?.toAvatar || "" : msg?.fromAvatar || "",
     },
   };
 };
 
 export const useMessageStore = create((set, get) => ({
-  conversations: [],      // [{ partner: {_id, username, avatarUrl}, lastMessage }]
-  messages: {},           // { [otherId]: [ Message ] }
+  conversations: [], // [{ partner: {_id, username, avatarUrl}, lastMessage }]
+  messages: {}, // { [otherId]: [ Message ] }
 
   // 🔔 Notifications
-  unreadByRoom: {},       // { [otherId]: number }
+  unreadByRoom: {}, // { [otherId]: number }
   activeRoomId: null,
 
   setActiveRoom: (roomId) => set({ activeRoomId: S(roomId) || null }),
   setUnreadCount: (roomId, count) =>
-    set((s) => ({ unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: Math.max(0, count) } })),
+    set((s) => ({
+      unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: Math.max(0, count) },
+    })),
   incUnread: (roomId) =>
     set((s) => ({
-      unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: (s.unreadByRoom[S(roomId)] || 0) + 1 },
+      unreadByRoom: {
+        ...s.unreadByRoom,
+        [S(roomId)]: (s.unreadByRoom[S(roomId)] || 0) + 1,
+      },
     })),
   clearUnread: (roomId) =>
     set((s) => ({ unreadByRoom: { ...s.unreadByRoom, [S(roomId)]: 0 } })),
@@ -127,7 +134,10 @@ export const useMessageStore = create((set, get) => ({
   sendMessage: async (otherId, text) => {
     const key = S(otherId);
     try {
-      const msg = await api("/messages", { method: "POST", body: { to: key, text } });
+      const msg = await api("/messages", {
+        method: "POST",
+        body: { to: key, text },
+      });
       const m = {
         ...msg,
         _id: S(msg._id),
@@ -294,6 +304,45 @@ export const useMessageStore = create((set, get) => ({
     if (otherId && otherId !== active && from !== my) {
       const curr = get().unreadByRoom[otherId] || 0;
       set({ unreadByRoom: { ...get().unreadByRoom, [otherId]: curr + 1 } });
+    }
+  },
+  /** --- Moderation / Deletion --- */
+
+  deleteMessage: async (messageId, otherId) => {
+    try {
+      await api(`/messages/${messageId}`, { method: "DELETE" });
+      set((state) => {
+        const key = S(otherId);
+        const list = (state.messages[key] || []).filter(
+          (m) => S(m._id) !== S(messageId)
+        );
+        return { messages: { ...state.messages, [key]: list } };
+      });
+    } catch (err) {
+      console.error("deleteMessage error", err);
+    }
+  },
+
+  hideConversation: async (otherId) => {
+    try {
+      await api(`/messages/${otherId}/hide`, { method: "POST" });
+      set((state) => ({
+        conversations: (state.conversations || []).filter(
+          (c) => S(c.partner?._id) !== S(otherId)
+        ),
+      }));
+    } catch (err) {
+      console.error("hideConversation error", err);
+    }
+  },
+
+  unhideConversation: async (otherId) => {
+    try {
+      await api(`/messages/${otherId}/unhide`, { method: "POST" });
+      // Après démasquage, on refetch
+      get().fetchConversations();
+    } catch (err) {
+      console.error("unhideConversation error", err);
     }
   },
 }));

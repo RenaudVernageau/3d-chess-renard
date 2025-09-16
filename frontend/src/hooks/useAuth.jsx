@@ -5,7 +5,7 @@ import { getMe } from "../api/users";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // { userId, username, token, email, avatar }
+  const [user, setUser] = useState(null); // { token, userId, username, email, avatar, role }
   const [ready, setReady] = useState(false);
 
   // ---- helpers ----
@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
     if (u.username !== undefined) localStorage.setItem("username", u.username || "");
     if (u.email    !== undefined) localStorage.setItem("email",    u.email || "");
     if (u.avatar   !== undefined) localStorage.setItem("avatar",   u.avatar || "");
+    if (u.role     !== undefined) localStorage.setItem("role",     u.role || "user");
   };
 
   const readLocal = () => {
@@ -24,14 +25,27 @@ export function AuthProvider({ children }) {
     const username = localStorage.getItem("username");
     const email    = localStorage.getItem("email");
     const avatar   = localStorage.getItem("avatar");
-    return token && userId && username ? { token, userId, username, email, avatar } : null;
+    const role     = localStorage.getItem("role") || "user";
+    return token && userId && username
+      ? { token, userId, username, email, avatar, role }
+      : null;
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("username");
+    localStorage.removeItem("email");
+    localStorage.removeItem("avatar");
+    localStorage.removeItem("role");
+    setUser(null);
   };
 
   const hydrateFromApi = async () => {
     const token = localStorage.getItem("token");
     if (!token) return; // pas connecté
     try {
-      const me = await getMe(); // { id, username, email, avatar }
+      const me = await getMe(); // { id, username, email, avatar, role }
       if (me?.id) {
         const next = {
           token,
@@ -39,6 +53,7 @@ export function AuthProvider({ children }) {
           username: me.username || "",
           email: me.email || "",
           avatar: me.avatar || "",
+          role: me.role || localStorage.getItem("role") || "user",
         };
         writeLocal(next);
         setUser(next);
@@ -74,7 +89,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const onStorage = (e) => {
       if (!e) return;
-      if (["token","userId","username","email","avatar"].includes(e.key)) {
+      if (["token","userId","username","email","avatar","role"].includes(e.key)) {
         const local = readLocal();
         setUser(local);
       }
@@ -91,10 +106,11 @@ export function AuthProvider({ children }) {
       username: res?.username || username || "",
       email:    res?.email || "",
       avatar:   res?.avatar || "",
+      role:     res?.role || "user",
     };
     writeLocal(next);
     setUser(next);
-    // après login, on synchronise avec /users/me pour récupérer avatar/version Cloudinary
+    // après login, on synchronise avec /users/me pour récupérer profil à jour
     hydrateFromApi();
     return next;
   };
@@ -107,20 +123,12 @@ export function AuthProvider({ children }) {
       username: res?.username || username || "",
       email:    res?.email || "",
       avatar:   res?.avatar || "",
+      role:     res?.role || "user",
     };
     writeLocal(next);
     setUser(next);
     hydrateFromApi();
     return next;
-  };
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("username");
-    localStorage.removeItem("email");
-    localStorage.removeItem("avatar");
-    setUser(null);
   };
 
   const token = user?.token || null;

@@ -97,9 +97,7 @@ async function applyUserUpdates({ targetUserId, body, editorRole }) {
 
   // (admin only) role
   if (typeof body.role === "string") {
-    if (editorRole !== "admin") {
-      // ignore silently si pas admin
-    } else if (["user", "moderator", "admin"].includes(body.role)) {
+    if (editorRole === "admin" && ["user", "moderator", "admin"].includes(body.role)) {
       updates.role = body.role;
     }
   }
@@ -138,10 +136,14 @@ exports.updateMe = async (req, res) => {
     if (!authUserId)
       return res.status(401).json({ message: "Not authenticated" });
 
+    // 🔑 charger le rôle de l’éditeur (toi-même)
+    const me = await User.findById(authUserId).select("role").lean();
+    const editorRole = me?.role || "user";
+
     const updated = await applyUserUpdates({
       targetUserId: authUserId,
       body: req.body,
-      editorRole: req.user.role,
+      editorRole,
     });
     return res.json(toPublicUser(updated));
   } catch (err) {
@@ -156,20 +158,16 @@ exports.updateMe = async (req, res) => {
 /* ========== PUT /users/:id ========== */
 exports.updateUser = async (req, res) => {
   try {
-    const authUserId = req.user?.id;
     const { id } = req.params;
 
-    const isSelf = authUserId && String(authUserId) === String(id);
-    const isMod = ["moderator", "admin"].includes(req.user?.role);
-
-    if (!isSelf && !isMod) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
+    // 🔑 charger le rôle de l’éditeur (utilisateur authentifié)
+    const me = await User.findById(req.user.id).select("role").lean();
+    const editorRole = me?.role || "user";
 
     const updated = await applyUserUpdates({
       targetUserId: id,
       body: req.body,
-      editorRole: req.user.role,
+      editorRole,
     });
     return res.json(toPublicUser(updated));
   } catch (err) {
@@ -204,16 +202,9 @@ exports.suspendUser = async (req, res) => {
 };
 
 /* ========== DELETE /users/:id ========== */
+// ⚠️ Le contrôle “self ou admin” est déjà fait par selfOrRole('admin') dans la route
 exports.deleteUser = async (req, res) => {
-  const authUserId = req.user?.id;
   const { id } = req.params;
-
-  const isSelf = authUserId && String(authUserId) === String(id);
-  const isAdmin = req.user?.role === "admin";
-
-  if (!isSelf && !isAdmin) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
   try {
     await User.findByIdAndDelete(id);
     res.json({ message: "User deleted" });

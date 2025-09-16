@@ -1,19 +1,28 @@
 // server/routes/messages.js
 const router = require("express").Router();
+
 const auth = require("../middleware/auth");
+// For future: you can require role here if you add staff-only endpoints
+// const { requireRole } = require("../middleware/roles");
+
 const ctrl = require("../controllers/messageController");
 
-// Historique
-router.get("/conversations", auth, ctrl.listConversations);
-router.get("/:otherId",      auth, ctrl.listWithUser);
+// All message routes require auth
+router.use(auth);
 
-// Fallback HTTP d'envoi
-router.post("/",             auth, ctrl.create);
+// Conversations list + thread history
+router.get("/conversations", ctrl.listConversations);
+router.get("/:otherId", ctrl.listWithUser);
 
-// Supprimer un message (auteur OU moderator/admin)
-router.delete("/:messageId", auth, ctrl.removeMessage);
+// Fallback HTTP send (WS down)
+router.post("/", ctrl.create);
 
-// Masquer / ré-afficher un thread pour l’utilisateur courant
-router.patch("/thread/:otherId/hidden", auth, ctrl.setThreadHidden);
+// Delete a message:
+// - Author can delete their own
+// - moderator/admin can delete any (enforced inside controller)
+router.delete("/:messageId", ctrl.removeMessage);
+
+// Hide/unhide a thread for the current user
+router.patch("/thread/:otherId/hidden", ctrl.setThreadHidden);
 
 module.exports = router;
