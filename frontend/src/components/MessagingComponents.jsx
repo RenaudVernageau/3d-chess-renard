@@ -4,6 +4,71 @@ import { useMessageStore } from "../store/useMessageStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import useWebSocket from "../hooks/useWebSocket";
 
+/* ===================== Utils dates (FR) ===================== */
+function startOfDay(d) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+function inSameWeek(a, b) {
+  const week = (d) => {
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = dt.getUTCDay() || 7;
+    dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+    return Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  };
+  return a.getFullYear() === b.getFullYear() && week(a) === week(b);
+}
+
+function formatTimeHHmm(date) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
+}
+
+function formatDayLabel(date, { withYear = true } = {}) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const yest = new Date(now); yest.setDate(now.getDate() - 1);
+  const isYesterday = d.toDateString() === yest.toDateString();
+
+  if (isToday) return "Aujourd’hui";
+  if (isYesterday) return "Hier";
+
+  const opts = { weekday: "long", day: "numeric", month: "long" };
+  if (withYear && d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return new Intl.DateTimeFormat("fr-FR", opts).format(d);
+}
+
+function formatListTimestamp(date) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const diffDays = (startOfDay(now) - startOfDay(d)) / 86400000;
+  if (diffDays === 0) return `Aujourd’hui ${formatTimeHHmm(d)}`;
+  if (diffDays === 1) return `Hier ${formatTimeHHmm(d)}`;
+  if (inSameWeek(d, now)) {
+    const wd = new Intl.DateTimeFormat("fr-FR", { weekday: "short" }).format(d); // "lun."
+    return `${capitalize(wd.replace(".", ""))} ${formatTimeHHmm(d)}`;
+  }
+  return `${new Intl.DateTimeFormat("fr-FR").format(d)} ${formatTimeHHmm(d)}`;
+}
+
+function groupMessagesByDay(messages, getDate = (m) => m.createdAt || m.date) {
+  const map = new Map();
+  for (const m of messages || []) {
+    const d = new Date(getDate(m) || Date.now());
+    const key = d.toISOString().slice(0, 10); // yyyy-mm-dd
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(m);
+  }
+  return Array.from(map.entries())
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([key, arr]) => ({
+      key,
+      date: new Date(key),
+      items: arr.sort((a,b)=> new Date(getDate(a)) - new Date(getDate(b)))
+    }));
+}
+
+/* ===================== Helpers ===================== */
 function parseJwt(token) {
   try {
     const base64 = token.split(".")[1];
@@ -13,9 +78,8 @@ function parseJwt(token) {
   }
 }
 
-/**
- * Liste des conversations (dernier message par partenaire)
- */
+/* ===================== ConversationsList ===================== */
+/** Liste des conversations (dernier message par partenaire) */
 export function ConversationsList({ onSelect, selectedId }) {
   const { conversations, fetchConversations, unreadByRoom } = useMessageStore();
 
@@ -46,12 +110,7 @@ export function ConversationsList({ onSelect, selectedId }) {
             const avatar = partner.avatarUrl || "/default-avatar.jpg";
 
             const last = conv?.lastMessage;
-            const when =
-              last?.createdAt &&
-              new Date(last.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+            const when = last?.createdAt ? formatListTimestamp(last.createdAt) : "";
 
             const unread = (unreadByRoom && pid && unreadByRoom[pid]) || 0;
 
@@ -67,6 +126,7 @@ export function ConversationsList({ onSelect, selectedId }) {
                   src={avatar}
                   alt={partnerName}
                   className="w-12 h-12 rounded-full object-cover mr-3"
+                  onError={(e) => { e.currentTarget.src = "/default-avatar.jpg"; }}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
@@ -95,9 +155,8 @@ export function ConversationsList({ onSelect, selectedId }) {
   );
 }
 
-/**
- * Fenêtre de chat pour une conversation
- */
+/* ===================== ChatWindow ===================== */
+/** Fenêtre de chat pour une conversation */
 export function ChatWindow({ otherId, onBack }) {
   const { user, token: authTokenFromHook } = useAuth() || {};
   const authToken = authTokenFromHook || localStorage.getItem("token") || "";
@@ -134,7 +193,7 @@ export function ChatWindow({ otherId, onBack }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages[otherId]]);
 
-  // WS: réception message (redondant avec écoute globale, mais ok grâce à l'anti-doublon)
+  // WS: réception message
   useEffect(() => {
     if (!socket || !myId) return;
     const handler = (msg) => {
@@ -163,8 +222,9 @@ export function ChatWindow({ otherId, onBack }) {
   };
 
   const msgs = Array.isArray(messages[otherId]) ? messages[otherId] : [];
+  const groups = groupMessagesByDay(msgs, (m) => m.createdAt);
 
-  // 🌟 Nom/Avatar dans l’en-tête (si dispo via conversations)
+  // Nom/Avatar dans l’en-tête
   const partner = (Array.isArray(conversations) ? conversations : []).find(
     (c) => String(c?.partner?._id) === String(otherId)
   )?.partner;
@@ -173,13 +233,10 @@ export function ChatWindow({ otherId, onBack }) {
     (partner?.email ? partner.email.split("@")[0] : "Joueur");
   const partnerAvatar = partner?.avatarUrl || "/default-avatar.jpg";
 
-  // 🔙 Retour : efface ?user= (ou appelle onBack si fourni)
+  // Retour : efface ?user= (ou appelle onBack si fourni)
   const handleBackClick = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      setSearchParams({});
-    }
+    if (onBack) onBack();
+    else setSearchParams({});
   };
 
   if (!myId) {
@@ -203,7 +260,6 @@ export function ChatWindow({ otherId, onBack }) {
     <div className="flex flex-col flex-1 bg-stone-900">
       {/* Header */}
       <header className="bg-stone-800 p-4 flex items-center gap-3">
-        {/* visible surtout sur mobile */}
         <button
           onClick={handleBackClick}
           className="text-stone-400 hover:text-white md:hidden"
@@ -214,45 +270,56 @@ export function ChatWindow({ otherId, onBack }) {
           src={partnerAvatar}
           alt={partnerName}
           className="w-8 h-8 rounded-full object-cover"
+          onError={(e)=>{ e.currentTarget.src="/default-avatar.jpg"; }}
         />
         <h3 className="text-white font-semibold truncate">{partnerName}</h3>
       </header>
 
       {/* Messages */}
-      <main className="flex-1 overflow-y-auto p-4 space-y-3">
-        {msgs.map((msg) => {
-          const fromId = String(msg?.from?._id || msg?.from || "");
-          const isMine = fromId === myId;
-          const stamp = msg?.createdAt ? new Date(msg.createdAt) : new Date();
-
-          const displayName = isMine ? "Moi" : msg.fromName || partnerName;
-
-          return (
-            <div
-              key={msg._id || `${fromId}-${stamp.getTime()}`}
-              className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-            >
-              <div className="max-w-[70%]">
-                <div className="text-xs text-stone-400 mb-1 px-1">
-                  {displayName}
-                </div>
-                <div
-                  className={`px-4 py-2 rounded-2xl break-words relative ${
-                    isMine ? "bg-blue-600 text-white" : "bg-stone-700 text-white"
-                  }`}
-                >
-                  <span>{msg.text}</span>
-                  <time className="text-[10px] text-stone-300 absolute -bottom-4 right-2">
-                    {stamp.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                </div>
-              </div>
+      <main className="flex-1 overflow-y-auto p-4 space-y-6">
+        {groups.map(({ key, date, items }) => (
+          <div key={key} className="space-y-2">
+            {/* Séparateur de jour */}
+            <div className="flex justify-center">
+              <span className="px-3 py-1 text-xs rounded-full bg-stone-700 text-stone-200 border border-stone-600">
+                {formatDayLabel(date)}
+              </span>
             </div>
-          );
-        })}
+
+            {/* Messages du jour */}
+            <div className="flex flex-col gap-3">
+              {items.map((msg) => {
+                const fromId = String(msg?.from?._id || msg?.from || "");
+                const isMine = fromId === myId;
+                const stamp = msg?.createdAt ? new Date(msg.createdAt) : new Date();
+                const displayName = isMine ? "Moi" : msg.fromName || partnerName;
+
+                return (
+                  <div
+                    key={msg._id || `${fromId}-${stamp.getTime()}`}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className="max-w-[75%]">
+                      <div className="text-xs text-stone-400 mb-1 px-1">
+                        {displayName}
+                      </div>
+                      <div
+                        className={`px-4 py-2 rounded-2xl break-words relative ${
+                          isMine ? "bg-blue-600 text-white" : "bg-stone-700 text-white"
+                        }`}
+                      >
+                        <span>{msg.text}</span>
+                        <div className={`mt-1 text-[11px] ${isMine ? "text-blue-200/80" : "text-stone-300/70"} text-right`}>
+                          {formatTimeHHmm(stamp)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         <div ref={endRef} />
       </main>
 
