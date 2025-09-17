@@ -39,8 +39,16 @@ export default forwardRef(function Board(
   ref
 ) {
   // useChess fournit l'état logique (plateau, coups, tour, etc.)
-  const { board, positions, lastMove, move, getLegalMoves, turn, gameOver } =
-    useChess();
+  const {
+    board,
+    positions,
+    lastMove,
+    move,
+    getLegalMoves,
+    turn,
+    gameOver,
+    getEndStatus, // ⬅️ new
+  } = useChess();
 
   const [selected, setSelected] = useState(null);
 
@@ -58,20 +66,18 @@ export default forwardRef(function Board(
   const maybeNotifyGameOver = useCallback(() => {
     if (endedRef.current) return;
 
-    // Heuristique :
-    // - si gameOver === true et SAN du dernier coup contient '#', on considère un mat
-    // - sinon, on considère une nulle (stalemate/pat/etc.) par défaut
     if (gameOver) {
-      let payload = { reason: "draw", winner: null };
+      // Utilise chess.js pour une raison précise
+      const status = getEndStatus
+        ? getEndStatus()
+        : { over: true, reason: "draw" };
+      if (!status?.over) return;
 
-      const san = lastMove?.san || "";
-      if (san.includes("#")) {
-        // gagnant = couleur qui vient de jouer
-        const who = lastMove?.color === "w" ? "white" : "black";
-        payload = { reason: "checkmate", winner: who };
-      }
+      const payload = {
+        reason: status.reason || "draw",
+        winner: status.winner || null,
+      };
 
-      // Joue le son et notifie une seule fois
       try {
         gameEndSound.play();
       } catch {
@@ -80,7 +86,7 @@ export default forwardRef(function Board(
       endedRef.current = true;
       onGameOver && onGameOver(payload);
     }
-  }, [gameOver, lastMove?.san, lastMove?.color, onGameOver, gameEndSound]);
+  }, [gameOver, getEndStatus, onGameOver, gameEndSound]);
 
   useEffect(() => {
     // À chaque changement de gameOver/lastMove, tente de notifier (une seule fois)
@@ -88,7 +94,6 @@ export default forwardRef(function Board(
   }, [maybeNotifyGameOver]);
 
   // ✅ Interpréteur pour appliquer un move reçu via WebSocket
-  // Accepte { from, to } OU { move: { from, to } }
   const applyMove = useCallback(
     (payload) => {
       const m = payload?.move ?? payload;
@@ -112,7 +117,6 @@ export default forwardRef(function Board(
     [move, maybeNotifyGameOver]
   );
 
-  // Expose la méthode à l’extérieur via la ref
   useImperativeHandle(ref, () => ({ applyMove }));
 
   // ——— Gestion des sons de coups ———
@@ -130,15 +134,6 @@ export default forwardRef(function Board(
     }
   }, [lastMove, moveCheckSound, captureSound, castleSound, moveSelfSound]);
 
-  // ——— Sons fin de partie (si useChess déclenche gameOver) ———
-  useEffect(() => {
-    if (gameOver) {
-      try {
-        gameEndSound.play();
-      } catch {}
-    }
-  }, [gameOver, gameEndSound]);
-
   // ——— Cases légales pour la pièce sélectionnée ———
   const legal = useMemo(
     () => (selected ? getLegalMoves(selected) : []),
@@ -151,13 +146,11 @@ export default forwardRef(function Board(
       const fromRank = Number(fromSq[1]);
       const toRank = Number(toSq[1]);
       const piece = (() => {
-        // retrouve la pièce sur la case "from" (avant le move)
         const fileIdx = FILES.indexOf(fromSq[0]);
         const row = 8 - fromRank;
         return board[row]?.[fileIdx] || null;
       })();
       if (!piece || piece.type !== "p") return undefined;
-      // Blanc promeut en 8, Noir en 1
       if (piece.color === "w" && toRank === 8) return "q";
       if (piece.color === "b" && toRank === 1) return "q";
       return undefined;
@@ -168,16 +161,14 @@ export default forwardRef(function Board(
   // ——— Gestion des clics ———
   const handleClick = useCallback(
     (r, c) => {
-      if (disabled) return; // bloque les interactions si la partie est finie
+      if (disabled) return;
 
-      // Respect du tour local (côté client) — le serveur reste autoritatif
       const myTurn = color === "white" ? "w" : "b";
       if (turn !== myTurn) return;
 
       const sq = getSquare(r, c);
       const piece = board[r][c];
 
-      // Sélection de ses propres pièces
       if (!selected) {
         if (piece && piece.color === myTurn) {
           setSelected(sq);
@@ -185,18 +176,14 @@ export default forwardRef(function Board(
         return;
       }
 
-      // Désélection
       if (sq === selected) {
         setSelected(null);
         return;
       }
 
-      // Coup légal (move ou capture)
       if (legal.includes(sq)) {
-        // Détecte promotion pour l'emit V2
         const promotion = detectPromotion(selected, sq);
 
-        // Applique localement (optimiste)
         try {
           move({ from: selected, to: sq, promotion });
           maybeNotifyGameOver();
@@ -210,12 +197,11 @@ export default forwardRef(function Board(
           return;
         }
 
-        // Diffuse via WS (V2 serveur autoritatif)
         if (socket && roomId) {
           socket.emit("move_piece", {
             roomId,
             move: { from: selected, to: sq, promotion },
-            color, // "white" | "black"
+            color,
           });
         }
       }

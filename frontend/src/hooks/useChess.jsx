@@ -46,20 +46,18 @@ export default function useChess() {
       const m = chess.move(moveConfig); // m est "verbose" par défaut avec chess.js v10+
       if (m) {
         // Détection capture côté client (V1)
-        // m.captured ∈ {'p','n','b','r','q','k'} si capture
         if (m.captured && m.captured !== "k") {
-          // m.color = 'w'|'b' pour le côté qui a JOUÉ (donc qui a capturé)
           applyCapture({
-            by: m.color,
+            by: m.color, // 'w' | 'b' = qui a capturé
             piece: m.captured,
             from: m.from,
             to: m.to,
           });
         }
         sync(m);
-        return m; // 🔁 retourne le coup joué
+        return m;
       } else {
-        return null; // 🔁 explicite quand le coup est invalide
+        return null;
       }
     },
     [chess, sync, applyCapture]
@@ -101,6 +99,30 @@ export default function useChess() {
   // Whose turn is it? "w" or "b"
   const turn = chess.turn();
 
+  /**
+   * Détermine précisément la raison de fin avec chess.js v10
+   * reasons: 'checkmate' | 'stalemate' | 'threefold_repetition' | 'insufficient_material' | 'fifty_move_rule' | 'draw'
+   */
+  const getEndStatus = useCallback(() => {
+    if (!chess.isGameOver()) return { over: false };
+
+    if (chess.isCheckmate()) {
+      // Après un coup légal, chess.turn() = camp qui DOIT jouer (donc le perdant)
+      const loser = chess.turn(); // 'w' | 'b'
+      const winner = loser === "w" ? "black" : "white";
+      return { over: true, reason: "checkmate", winner };
+    }
+
+    if (chess.isStalemate())            return { over: true, reason: "stalemate" };
+    if (chess.isThreefoldRepetition())  return { over: true, reason: "threefold_repetition" };
+    if (chess.isInsufficientMaterial()) return { over: true, reason: "insufficient_material" };
+
+    // Si on est en nulle mais pas les cas ci-dessus, c’est (quasi) la règle des 50 coups
+    if (chess.isDraw())                 return { over: true, reason: "fifty_move_rule" };
+
+    return { over: true, reason: "draw" }; // fallback
+  }, [chess]);
+
   return {
     board,
     positions,
@@ -109,5 +131,6 @@ export default function useChess() {
     getLegalMoves,
     turn,
     gameOver,
+    getEndStatus, // ⬅️ exporté
   };
 }
