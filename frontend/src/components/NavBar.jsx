@@ -6,7 +6,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
   // Auth / routing
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location?.pathname || "/";
@@ -17,11 +17,11 @@ export default function NavBar() {
   const [copied, setCopied] = useState(false);
 
   // Stores
-  const roomId      = useGameUiStore((s) => s.currentRoomId);
-  const color       = useGameUiStore((s) => s.myColor);
-  const turnColor   = useGameUiStore((s) => s.turnColor);
-  const myTurn      = useGameUiStore((s) => s.myTurn);
-  const players     = useGameUiStore((s) => s.players) || [];
+  const roomId = useGameUiStore((s) => s.currentRoomId);
+  const color = useGameUiStore((s) => s.myColor);
+  const turnColor = useGameUiStore((s) => s.turnColor);
+  const myTurn = useGameUiStore((s) => s.myTurn);
+  const players = useGameUiStore((s) => s.players) || [];
   const totalUnread = useMessageStore((s) => s.totalUnread()); // 🔔 somme non-lus
 
   if (!user) return null;
@@ -30,7 +30,9 @@ export default function NavBar() {
   const username = user?.username || "";
   const avatarRaw = user?.avatar || user?.avatarUrl || "";
   const avatar =
-    avatarRaw && String(avatarRaw).trim() !== "" ? avatarRaw : "/default-avatar.jpg";
+    avatarRaw && String(avatarRaw).trim() !== ""
+      ? avatarRaw
+      : "/default-avatar.jpg";
 
   // Liste joueurs (desktop)
   const playersList = (Array.isArray(players) ? players : [])
@@ -52,6 +54,11 @@ export default function NavBar() {
   const handleResume = () => {
     if (!roomId) return;
     navigate(`/play/${roomId}`);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
   };
 
   // Helpers affichage tour
@@ -99,15 +106,28 @@ export default function NavBar() {
             aria-controls="mobile-menu"
             aria-label="Ouvrir le menu"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5 text-stone-100" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              {open ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5 text-stone-100"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              {open ? (
+                <path d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path d="M3 6h18M3 12h18M3 18h18" />
+              )}
             </svg>
 
             {/* 🔔 Badge non-lus visible même menu fermé */}
             {totalUnread > 0 && (
               <span
                 className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center"
-                title={`${totalUnread} nouveau${totalUnread>1?"x":""} message${totalUnread>1?"s":""}`}
+                title={`${totalUnread} nouveau${
+                  totalUnread > 1 ? "x" : ""
+                } message${totalUnread > 1 ? "s" : ""}`}
               >
                 {totalUnread > 99 ? "99+" : totalUnread}
               </span>
@@ -124,26 +144,47 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
-            <Link to="/users" className="hover:text-white">👥 Utilisateurs</Link>
-            <Link to="/profile" className="group flex items-center gap-2 hover:text-white">
+            <Link to="/users" className="hover:text-white">
+              👥 Utilisateurs
+            </Link>
+            <Link
+              to="/profile"
+              className="group flex items-center gap-2 hover:text-white"
+            >
               <img
                 src={avatar}
                 alt={username || "Profil"}
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-stone-600/60"
-                onError={(e)=>{ e.currentTarget.src="/default-avatar.jpg"; }}
+                onError={(e) => {
+                  e.currentTarget.src = "/default-avatar.jpg";
+                }}
               />
-              <span className="hidden sm:inline">{username || "Mon profil"}</span>
+              <span className="hidden sm:inline">
+                {username || "Mon profil"}
+              </span>
             </Link>
+            <button
+              onClick={handleLogout}
+              className="ml-3 text-sm px-3 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium"
+            >
+              Déconnexion
+            </button>
           </nav>
         </div>
 
         {/* Menu mobile */}
         <div
           id="mobile-menu"
-          className={`md:hidden overflow-hidden transition-[max-height] duration-300 ${open ? "max-h-64" : "max-h-0"}`}
+          className={`md:hidden overflow-hidden transition-[max-height] duration-300 ${
+            open ? "max-h-64" : "max-h-0"
+          }`}
         >
           <div className="flex flex-col gap-3 py-3 text-stone-200">
-            <Link to="/messages" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
+            <Link
+              to="/messages"
+              className="px-1 hover:text-white"
+              onClick={() => setOpen(false)}
+            >
               💬 Messages
               {totalUnread > 0 && (
                 <span className="ml-2 rounded-full bg-red-600 text-white text-[10px] px-1.5 py-0.5">
@@ -151,18 +192,37 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
-            <Link to="/users" className="px-1 hover:text-white" onClick={() => setOpen(false)}>
+            <Link
+              to="/users"
+              className="px-1 hover:text-white"
+              onClick={() => setOpen(false)}
+            >
               👥 Utilisateurs
             </Link>
-            <Link to="/profile" className="px-1 hover:text-white flex items-center gap-2" onClick={() => setOpen(false)}>
+            <Link
+              to="/profile"
+              className="px-1 hover:text-white flex items-center gap-2"
+              onClick={() => setOpen(false)}
+            >
               <img
                 src={avatar}
                 alt={username || "Profil"}
                 className="w-6 h-6 rounded-full object-cover ring-1 ring-stone-600/60"
-                onError={(e)=>{ e.currentTarget.src="/default-avatar.jpg"; }}
+                onError={(e) => {
+                  e.currentTarget.src = "/default-avatar.jpg";
+                }}
               />
               <span>{username || "Mon profil"}</span>
             </Link>
+            <button
+              onClick={() => {
+                handleLogout();
+                setOpen(false);
+              }}
+              className="px-1 text-left text-red-400 hover:text-red-300"
+            >
+              ⏻ Déconnexion
+            </button>
           </div>
         </div>
       </div>
