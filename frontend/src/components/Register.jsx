@@ -3,7 +3,14 @@ import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getCloudinarySignature } from "../api/upload";
-import { uploadFileToCloudinary } from "../utils/cloudinaryUpload";
+import {
+  uploadFileToCloudinary,
+  uploadFileToCloudinaryUnsigned,
+} from "../utils/cloudinaryUpload";
+
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET_AVATARS;
+const DEFAULT_FOLDER = "avatars";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -34,7 +41,6 @@ export default function Register() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // mêmes gardes-fous que dans OwnProfile
     if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
       setError("Formats autorisés : JPEG, PNG, WebP");
       return;
@@ -60,20 +66,32 @@ export default function Register() {
 
     setLoading(true);
     try {
-      // 1) Upload Cloudinary si avatar choisi
       let avatarUrl = "";
+
       if (avatarFile) {
-        const sig = await getCloudinarySignature(); // { timestamp, signature, api_key, cloud_name, folder? }
-        const uploadRes = await uploadFileToCloudinary(avatarFile, sig);
-        avatarUrl = uploadRes.secure_url || "";
+        const token = localStorage.getItem("token");
+
+        if (token) {
+          // Cas connecté (rare à l’inscription) → upload signé
+          const sig = await getCloudinarySignature({ folder: DEFAULT_FOLDER });
+          const up = await uploadFileToCloudinary(avatarFile, sig);
+          avatarUrl = up.secure_url;
+        } else {
+          // Cas standard (pas encore connecté) → upload unsigned
+          const up = await uploadFileToCloudinaryUnsigned(avatarFile, {
+            cloudName: CLOUD_NAME,
+            uploadPreset: UPLOAD_PRESET,
+            folder: DEFAULT_FOLDER,
+          });
+          avatarUrl = up.secure_url;
+        }
       }
 
-      // 2) Appel register avec l'URL (comme OwnProfile)
       await register({
         username: form.username,
         email: form.email,
         password: form.password,
-        avatar: avatarUrl || undefined, // on envoie rien si pas d’avatar
+        avatar: avatarUrl || undefined,
       });
 
       navigate("/login");
