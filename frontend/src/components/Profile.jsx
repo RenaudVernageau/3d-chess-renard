@@ -179,7 +179,7 @@ export function OwnProfile() {
       {/* Bouton Déconnexion sous la carte */}
       <button
         onClick={handleLogout}
-        className="w-full max-w-sm rounded-lg px-4 py-2 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-100 transition"
+        className="mt-4 w-full py-2 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition"
       >
         ⏻ Déconnexion
       </button>
