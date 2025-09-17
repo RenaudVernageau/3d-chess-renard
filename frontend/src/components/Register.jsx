@@ -3,6 +3,7 @@ import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getCloudinarySignature } from "../api/upload";
+import { updateMe as updateMeApi } from "../api/users";
 import {
   uploadFileToCloudinary,
   uploadFileToCloudinaryUnsigned,
@@ -14,7 +15,7 @@ const DEFAULT_FOLDER = "avatars";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const fileInputRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -87,14 +88,27 @@ export default function Register() {
         }
       }
 
+      // 1) Création du compte (on envoie avatar & avatarUrl pour couvrir les deux cas backend)
       await register({
-        username: form.username,
-        email: form.email,
+        username: form.username.trim(),
+        email: form.email.trim(),
         password: form.password,
         avatar: avatarUrl || undefined,
+        avatarUrl: avatarUrl || undefined,
       });
 
-      navigate("/login");
+      // 2) Auto-login
+      await login({ email: form.email.trim(), password: form.password });
+
+      // 3) Sécurité : si besoin, pousse l’avatar via updateMe (idempotent)
+      if (avatarUrl) {
+        try {
+          await updateMeApi({ avatar: avatarUrl, avatarUrl });
+        } catch (_) {}
+      }
+
+      // 4) Go app
+      navigate("/lobby");
     } catch (err) {
       console.error("Register error", err);
       setError(err?.message || err?.error || "Impossible de s’inscrire");
