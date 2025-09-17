@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; // ⬅️ useNavigate ajouté
-import { FiMessageCircle } from "react-icons/fi"; // icône bouton
+import { useParams, useNavigate } from "react-router-dom";
+import { FiMessageCircle } from "react-icons/fi";
 import { useAuth } from "../hooks/useAuth";
 import { updateMe as updateMeApi } from "../api/users";
 import api from "../api";
@@ -17,7 +17,9 @@ async function fetchUserById(userId) {
 
 /* -------- Mon profil -------- */
 export function OwnProfile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+
   const initialUsername = user?.username || "";
   const initialAvatar = user?.avatar || user?.avatarUrl || "";
 
@@ -85,8 +87,7 @@ export function OwnProfile() {
           avatar: updated.avatar || avatarUrlFinal || "",
         });
       } else {
-        if (updated?.username)
-          localStorage.setItem("username", updated.username);
+        if (updated?.username) localStorage.setItem("username", updated.username);
         if (updated?.avatar) localStorage.setItem("avatar", updated.avatar);
       }
 
@@ -102,12 +103,18 @@ export function OwnProfile() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
-    <div className="flex items-center justify-center min-h-screen p-6">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 gap-4">
+      {/* Carte profil */}
       <form
         onSubmit={handleSubmit}
         noValidate
-            className="w-full max-w-sm bg-stone-900 text-stone-100 p-6 rounded-xl border border-stone-700"
+        className="w-full max-w-sm bg-stone-900 text-stone-100 p-6 rounded-xl border border-stone-700"
       >
         <h2 className="text-xl font-bold mb-4 text-center">Mon profil</h2>
 
@@ -168,17 +175,24 @@ export function OwnProfile() {
           {loading ? "Mise à jour..." : "Mettre à jour"}
         </button>
       </form>
+
+      {/* Bouton Déconnexion sous la carte */}
+      <button
+        onClick={handleLogout}
+        className="w-full max-w-sm rounded-lg px-4 py-2 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-100 transition"
+      >
+        ⏻ Déconnexion
+      </button>
     </div>
   );
 }
 
 /* -------- Profil d’un autre utilisateur (affichage) -------- */
 export function UserProfile({ id: propId }) {
-  // ⬇️ récupère l'id soit via prop (ancien usage), soit via l'URL /users/:id
   const { id: routeId } = useParams();
   const id = propId || routeId;
 
-  const navigate = useNavigate(); // ⬅️ pour le bouton "Envoyer un message"
+  const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
@@ -186,7 +200,6 @@ export function UserProfile({ id: propId }) {
   useEffect(() => {
     let mounted = true;
 
-    // garde-fou si l'id est absent ou "undefined"
     if (!id || id === "undefined") {
       setErr("ID utilisateur invalide.");
       setData(null);
