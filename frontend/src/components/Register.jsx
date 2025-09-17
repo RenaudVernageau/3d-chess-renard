@@ -98,7 +98,7 @@ export default function Register() {
       });
 
       // 2) Auto-login
-      await login({ email: form.email.trim(), password: form.password });
+      await login({ username: form.username.trim(), password: form.password });
 
       // 3) Sécurité : si besoin, pousse l’avatar via updateMe (idempotent)
       if (avatarUrl) {

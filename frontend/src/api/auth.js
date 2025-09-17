@@ -5,7 +5,7 @@ import api from './index';
 export function register({ username, email, password, avatar }) {
   return api('/auth/register', {
     method: 'POST',
-    body: { username, email, password, avatar },
+    body: { username, email, password, avatar, avatarUrl: avatar },
   }).then((res) => {
     const { token, user } = res || {};
     return {
