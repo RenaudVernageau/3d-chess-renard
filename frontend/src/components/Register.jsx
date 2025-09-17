@@ -1,4 +1,4 @@
-// src/components/Register.jsx
+// frontend/src/components/Register.jsx
 import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -97,7 +97,7 @@ export default function Register() {
         avatarUrl: avatarUrl || undefined,
       });
 
-      // 2) Auto-login
+      // 2) Auto-login (ton endpoint attend le username)
       await login({ username: form.username.trim(), password: form.password });
 
       // 3) Sécurité : si besoin, pousse l’avatar via updateMe (idempotent)
