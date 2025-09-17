@@ -2,6 +2,8 @@
 import React, { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { getCloudinarySignature } from "../api/upload";
+import { uploadFileToCloudinary } from "../utils/cloudinaryUpload";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,13 +15,15 @@ export default function Register() {
     email: "",
     password: "",
     confirm: "",
-    avatar: ""  // contiendra la Data URL
   });
+
+  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   };
 
   const handleAvatarClick = () => {
@@ -27,47 +31,70 @@ export default function Register() {
   };
 
   const handleAvatarChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image trop volumineuse (max 2 Mo)");
+
+    // mêmes gardes-fous que dans OwnProfile
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+      setError("Formats autorisés : JPEG, PNG, WebP");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result);
-      setForm(f => ({ ...f, avatar: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image trop lourde (>5MB)");
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
     if (form.password !== form.confirm) {
       setError("Les mots de passe doivent correspondre");
       return;
     }
+
+    setLoading(true);
     try {
+      // 1) Upload Cloudinary si avatar choisi
+      let avatarUrl = "";
+      if (avatarFile) {
+        const sig = await getCloudinarySignature(); // { timestamp, signature, api_key, cloud_name, folder? }
+        const uploadRes = await uploadFileToCloudinary(avatarFile, sig);
+        avatarUrl = uploadRes.secure_url || "";
+      }
+
+      // 2) Appel register avec l'URL (comme OwnProfile)
       await register({
         username: form.username,
-        email:    form.email,
+        email: form.email,
         password: form.password,
-        avatar:   form.avatar,
+        avatar: avatarUrl || undefined, // on envoie rien si pas d’avatar
       });
+
       navigate("/login");
     } catch (err) {
-      setError(err.error || "Impossible de s’inscrire");
+      console.error("Register error", err);
+      setError(err?.message || err?.error || "Impossible de s’inscrire");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center
-                    bg-gradient-to-b from-white to-stone-100
-                    dark:from-stone-800 dark:to-stone-900
-                    transition-colors duration-500">
+    <div
+      className="min-h-screen flex items-center justify-center
+                 bg-gradient-to-b from-white to-stone-100
+                 dark:from-stone-800 dark:to-stone-900
+                 transition-colors duration-500"
+    >
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="bg-stone-800 p-8 rounded-lg shadow-xl w-full max-w-md"
       >
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
@@ -80,24 +107,26 @@ export default function Register() {
             className="w-24 h-24 rounded-full bg-stone-700 overflow-hidden
                        cursor-pointer border-2 border-stone-600"
             onClick={handleAvatarClick}
+            title="Choisir une photo de profil"
           >
             {avatarPreview ? (
               <img
                 src={avatarPreview}
                 alt="Aperçu avatar"
                 className="object-cover w-full h-full"
+                onError={(e) => {
+                  e.currentTarget.src = "/default-avatar.jpg";
+                }}
               />
             ) : (
               <div className="flex items-center justify-center
-                              h-full text-stone-400 text-2xl">
-                +
-              </div>
+                              h-full text-stone-400 text-2xl">+</div>
             )}
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={handleAvatarChange}
           />
@@ -162,10 +191,11 @@ export default function Register() {
 
         <button
           type="submit"
-          className="w-full py-2 bg-green-600 hover:bg-green-700 text-white
-                     font-semibold rounded-lg transition"
+          disabled={loading}
+          className="w-full py-2 bg-green-600 hover:bg-green-700 disabled:opacity-60
+                     text-white font-semibold rounded-lg transition"
         >
-          S’inscrire
+          {loading ? "Création du compte…" : "S’inscrire"}
         </button>
 
         <p className="mt-4 text-stone-400 text-center text-sm">
