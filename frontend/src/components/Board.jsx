@@ -62,6 +62,23 @@ export default forwardRef(function Board(
   const castleSound = useMemo(() => new Audio(castleUrl), []);
   const gameEndSound = useMemo(() => new Audio(gameEndUrl), []);
 
+  // === Highlight du dernier coup adverse ===
+  const [showOppLastMove, setShowOppLastMove] = useState(false);
+
+  // Pulse d'opacité (0 -> 0.35 -> 0.1 -> …) tant que l'affichage est actif
+  const { hlOpacity } = useSpring({
+    from: { hlOpacity: 0 },
+    to: async (next) => {
+      while (showOppLastMove) {
+        await next({ hlOpacity: 0.35 });
+        await next({ hlOpacity: 0.1 });
+      }
+      await next({ hlOpacity: 0 });
+    },
+    config: { tension: 120, friction: 14, clamp: true },
+    pause: !showOppLastMove,
+  });
+
   // —— Détection + notification fin de partie (centralisée) ——
   const maybeNotifyGameOver = useCallback(() => {
     if (endedRef.current) return;
@@ -133,6 +150,21 @@ export default forwardRef(function Board(
       /* ignore autoplay restrictions */
     }
   }, [lastMove, moveCheckSound, captureSound, castleSound, moveSelfSound]);
+
+  // ——— Highlight: activer 4s seulement si le coup vient de l'adversaire ———
+  useEffect(() => {
+    if (!lastMove) return;
+    const mySide = color === "white" ? "w" : "b";
+    const isOpponentMove = lastMove?.color && lastMove.color !== mySide;
+
+    if (isOpponentMove) {
+      setShowOppLastMove(true);
+      const t = setTimeout(() => setShowOppLastMove(false), 4000);
+      return () => clearTimeout(t);
+    } else {
+      setShowOppLastMove(false);
+    }
+  }, [lastMove, color]);
 
   // ——— Cases légales pour la pièce sélectionnée ———
   const legal = useMemo(
@@ -247,6 +279,24 @@ export default forwardRef(function Board(
     config: { duration: 800 },
   });
 
+  // Overlay de highlight d'une case (utilisé pour from/to du dernier coup adverse)
+  const HighlightSquare = ({ square }) => {
+    if (!square) return null;
+    const [x, , z] = squareToPosition(square);
+    return (
+      <a.mesh position={[x, 0.125, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.98, 0.98]} />
+        <a.meshStandardMaterial
+          transparent
+          opacity={hlOpacity}
+          color="#f7e26b"
+          metalness={0}
+          roughness={1}
+        />
+      </a.mesh>
+    );
+  };
+
   return (
     <group>
       <Lights />
@@ -276,6 +326,14 @@ export default forwardRef(function Board(
             </mesh>
           );
         })
+      )}
+
+      {/* Highlight du dernier coup adverse (from/to) */}
+      {showOppLastMove && lastMove && (
+        <>
+          <HighlightSquare square={lastMove.from} />
+          <HighlightSquare square={lastMove.to} />
+        </>
       )}
 
       {checkSquare && (
