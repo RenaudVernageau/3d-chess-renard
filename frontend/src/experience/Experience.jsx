@@ -1,4 +1,4 @@
-// src/experience/Experience.jsx
+//src/experience/Experience.jsx
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate, useNavigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import useWebSocket from "../hooks/useWebSocket";
 import Controls from "./Controls.jsx";
 import Lights from "./Lights.jsx";
 import Board from "../components/Board.jsx";
-import MaterialPill from "../components/MaterialPill"; // ⬅️ ajout
+import MaterialPill from "../components/MaterialPill";
 import { useGameUiStore } from "../store/useGameUiStore";
 
 export default function Experience() {
@@ -16,13 +16,18 @@ export default function Experience() {
   const navigate = useNavigate();
   const { socket, connected, emit, on, off } = useWebSocket(user?.token);
 
-  const [players, setPlayers] = useState([]);
+  const [players, setPlayers] = useState([]); // [{id,username,color}]
   const [color, setColor] = useState(null); // "white" | "black"
   const [peerQuit, setPeerQuit] = useState(false);
   const [gameOver, setGameOver] = useState(null); // { reason, winner }
   const boardRef = useRef(null);
 
   const setGameUi = useGameUiStore((s) => s.setGameUi);
+
+  // === Rematch (état local) ===
+  const [rematchIncoming, setRematchIncoming] = useState(null); // { roomId, fromUserId, toUserId }
+  const [rematchPending, setRematchPending] = useState(false);  // j'ai proposé, en attente
+  const rematchTimerRef = useRef(null);
 
   // Guards
   const listenersAttached = useRef(false);
@@ -46,12 +51,11 @@ export default function Experience() {
     );
 
   const publishPlayers = (arr) => {
-    const names = toNames(arr);
     setPlayers(arr);
-    setGameUi({ players: names });
+    setGameUi({ players: toNames(arr) });
   };
 
-  const sideToHumanColor = (side /* 'w'|'b' */) =>
+  const sideToHumanColor = (side) =>
     side === "w" ? "white" : side === "b" ? "black" : undefined;
 
   // Attache les listeners WS
@@ -121,7 +125,7 @@ export default function Experience() {
       }
     };
 
-    // ✅ Re-synchronisation depuis le serveur (compat historique)
+    // Re-synchro legacy
     const handleStateSync = (state) => {
       try {
         const moves = Array.isArray(state?.moves) ? state.moves : [];
@@ -152,7 +156,6 @@ export default function Experience() {
       }
     };
 
-    // ✅ Snapshot autoritatif (V2)
     const handleGameSnapshot = (snap) => {
       try {
         const fen = typeof snap?.fen === "string" ? snap.fen : null;
@@ -173,6 +176,35 @@ export default function Experience() {
       setGameOver(payload || { reason: "unknown", winner: null });
     };
 
+    // ===== Listeners REMATCH =====
+    const handleRematchIncoming = (p) => {
+      // p: { roomId, fromUserId, toUserId }
+      // on ne montre le popup qu'au destinataire
+      if (p?.toUserId !== user?.id && String(p?.toUserId) !== String(user?.id)) return;
+      setRematchIncoming(p);
+      // expire au bout de 30s
+      clearTimeout(rematchTimerRef.current);
+      rematchTimerRef.current = setTimeout(() => setRematchIncoming(null), 30000);
+    };
+
+    const handleRematchAccepted = ({ newRoomId }) => {
+      setRematchPending(false);
+      setRematchIncoming(null);
+      if (newRoomId) {
+        navigate(`/play/${newRoomId}?rematch=1`, { replace: true });
+      }
+    };
+
+    const handleRematchDeclined = () => {
+      setRematchPending(false);
+      setRematchIncoming(null);
+    };
+
+    const handleRematchCancelled = () => {
+      setRematchPending(false);
+      setRematchIncoming(null);
+    };
+
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
@@ -183,6 +215,11 @@ export default function Experience() {
     on("game:snapshot", handleGameSnapshot);
     on("game_over", handleGameOverServer);
     on("error", handleServerError);
+
+    on("rematch:incoming", handleRematchIncoming);
+    on("rematch:accepted", handleRematchAccepted);
+    on("rematch:declined", handleRematchDeclined);
+    on("rematch:cancelled", handleRematchCancelled);
 
     listenersAttached.current = true;
 
@@ -208,10 +245,17 @@ export default function Experience() {
       off("game:snapshot", handleGameSnapshot);
       off("game_over", handleGameOverServer);
       off("error", handleServerError);
+
+      off("rematch:incoming", handleRematchIncoming);
+      off("rematch:accepted", handleRematchAccepted);
+      off("rematch:declined", handleRematchDeclined);
+      off("rematch:cancelled", handleRematchCancelled);
+
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
+      clearTimeout(rematchTimerRef.current);
     };
-  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color]);
+  }, [roomId, connected, socket, emit, on, off, user?.username, user?.id, setGameUi, color, navigate]);
 
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
@@ -261,6 +305,42 @@ export default function Experience() {
     setGameOver(payload || { reason: "unknown", winner: null });
   };
 
+  // Trouver l'adversaire (id) pour rematch
+  const opponent = players.find((p) => String(p?.id) !== String(user?.id));
+  const opponentId = opponent?.id;
+
+  // Popup "l'adversaire te propose un rematch"
+  const rematchPrompt = rematchIncoming ? (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-[92%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
+        <h3 className="text-lg font-semibold mb-2">Rejouer une partie ?</h3>
+        <p className="text-stone-300 mb-5">
+          {players.find(p => String(p.id) === String(rematchIncoming.fromUserId))?.username || "Votre adversaire"} vous propose un rematch.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => {
+              emit("rematch:decline", { roomId, fromUserId: rematchIncoming.fromUserId, toUserId: user.id });
+              setRematchIncoming(null);
+            }}
+            className="rounded-lg bg-stone-700 hover:bg-stone-600 active:scale-95 px-4 py-2 text-white transition"
+          >
+            Refuser
+          </button>
+          <button
+            onClick={() => {
+              emit("rematch:accept", { roomId, fromUserId: rematchIncoming.fromUserId, toUserId: user.id });
+              setRematchIncoming(null);
+            }}
+            className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
+          >
+            Accepter
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   const peerQuitModal = peerQuit ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-[90%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
@@ -298,6 +378,12 @@ export default function Experience() {
             ? "Échec et mat"
             : gameOver.reason === "stalemate"
             ? "Pat"
+            : gameOver.reason === "threefold_repetition"
+            ? "Nulle par triple répétition"
+            : gameOver.reason === "fifty_move_rule"
+            ? "Nulle (règle des 50 coups)"
+            : gameOver.reason === "insufficient_material"
+            ? "Nulle (matériel insuffisant)"
             : gameOver.reason === "draw"
             ? "Match nul"
             : gameOver.reason === "resign"
@@ -311,23 +397,54 @@ export default function Experience() {
             : "Merci d’avoir joué !"}
         </p>
 
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => {
-              setGameUi({
-                currentRoomId: null,
-                myColor: undefined,
-                players: [],
-                isInGame: false,
-                turnColor: undefined,
-                myTurn: undefined,
-              });
-              navigate("/lobby", { replace: true });
-            }}
-            className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
-          >
-            Retour au menu
-          </button>
+        <div className="flex justify-between gap-3">
+          {/* Rejouer */}
+          <div className="flex items-center gap-2">
+            {opponentId ? (
+              rematchPending ? (
+                <button
+                  onClick={() => {
+                    emit("rematch:cancel", { roomId, fromUserId: user.id, toUserId: opponentId });
+                    setRematchPending(false);
+                  }}
+                  className="rounded-lg bg-stone-700 hover:bg-stone-600 active:scale-95 px-3 py-2 text-white transition"
+                  title="Annuler la proposition"
+                >
+                  Annuler…
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    emit("rematch:request", { roomId, fromUserId: user.id, toUserId: opponentId });
+                    setRematchPending(true);
+                  }}
+                  className="rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 px-3 py-2 text-white transition"
+                >
+                  Rejouer
+                </button>
+              )
+            ) : null}
+          </div>
+
+          {/* Retour menu */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setGameUi({
+                  currentRoomId: null,
+                  myColor: undefined,
+                  players: [],
+                  isInGame: false,
+                  turnColor: undefined,
+                  myTurn: undefined,
+                });
+                navigate("/lobby", { replace: true });
+              }}
+              className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
+            >
+              Retour au menu
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -348,7 +465,6 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <div className="flex-1 relative">
-        {/* pastille à gauche, alignée verticalement avec le bouton à droite */}
         <div className="absolute top-2 left-2 z-40">
           <MaterialPill />
         </div>
@@ -356,6 +472,7 @@ export default function Experience() {
         {quitButton}
         {peerQuitModal}
         {gameOverModal}
+        {rematchPrompt}
         <Canvas
           flat
           shadows

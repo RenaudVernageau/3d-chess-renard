@@ -1,4 +1,4 @@
-// server/services/websocket.js
+//server/services/websocket.js
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../config");
 const { rooms } = require("../models/Game");
@@ -10,10 +10,9 @@ function initWebsocket(server) {
   const io = require("socket.io")(server, {
     cors: { origin: "*" },
     path: "/socket.io",
-    // ✅ Ajout pour limiter les déco sur mobile / onglets en veille
-    transports: ["websocket"], // évite de retomber en polling
-    pingInterval: 25000,       // battement ping
-    pingTimeout: 60000,        // délai avant de considérer la connexion perdue
+    transports: ["websocket"],
+    pingInterval: 25000,
+    pingTimeout: 60000,
   });
 
   // --- Auth WS ---
@@ -37,7 +36,7 @@ function initWebsocket(server) {
         players: [],            // [{ id, username, color }]
         assignments: {},        // { [userId]: "white"|"black"|"spectator" }
         turn: "white",
-        state: { fen: null, moves: [] }, // ✅ état minimal en mémoire
+        state: { fen: null, moves: [] },
         createdAt: Date.now(),
       };
     } else if (!rooms[roomId].state) {
@@ -87,7 +86,6 @@ function initWebsocket(server) {
       return;
     }
 
-    // Track des rooms jeu rejointes par ce socket (pour cleanup à disconnect)
     socket.joinedGameRooms = new Set();
 
     // Room perso pour la messagerie
@@ -117,11 +115,9 @@ function initWebsocket(server) {
         activeColor: room.turn,
       });
 
-      // ✅ Envoie l'état initial (vide) au créateur
       socket.emit("state_sync", room.state);
     });
 
-    // Créer une room avec un ID donné (fallback)
     socket.on("create_room_with_id", ({ roomId, username: uname }) => {
       if (!roomId) return;
       const room = ensureRoom(roomId);
@@ -151,7 +147,7 @@ function initWebsocket(server) {
         activeColor: room.turn,
       });
 
-      socket.emit("state_sync", room.state); // ✅ état au créateur/joiner
+      socket.emit("state_sync", room.state);
       socket.to(roomId).emit("room_player_update", {
         roomId,
         players: room.players,
@@ -161,10 +157,7 @@ function initWebsocket(server) {
     socket.on("join_room", ({ roomId }) => {
       const room = ensureRoom(roomId);
 
-      // Si le joueur a déjà une couleur, on la garde
       let color = room.assignments[userId];
-
-      // Sinon on lui en attribue une disponible
       if (!color) {
         color = pickNextColor(room.assignments);
         room.assignments[userId] = color;
@@ -185,7 +178,6 @@ function initWebsocket(server) {
 
       console.log(`[WS] ${username} joined game room ${roomId} as ${color}`);
 
-      // Notifie l'arrivant
       socket.emit("room_joined", {
         roomId,
         players: room.players,
@@ -193,17 +185,14 @@ function initWebsocket(server) {
         activeColor: room.turn,
       });
 
-      // ✅ Envoie l'état courant pour resync (reload/entrée tardive)
       socket.emit("state_sync", room.state);
 
-      // Notifie les autres d'une mise à jour
       socket.to(roomId).emit("room_player_update", {
         roomId,
         players: room.players,
       });
     });
 
-    // Le client peut demander explicitement l'état (ex: après reconnect)
     socket.on("state_request", ({ roomId }) => {
       const room = rooms[roomId];
       if (!room) {
@@ -213,7 +202,6 @@ function initWebsocket(server) {
       socket.emit("state_sync", room.state || { fen: null, moves: [] });
     });
 
-    // Option : quitter la room (sans “quitter la partie” pour l'autre)
     socket.on("leave_room", ({ roomId }) => {
       const room = rooms[roomId];
       if (!room) return;
@@ -227,7 +215,6 @@ function initWebsocket(server) {
       cleanupRoomIfEmpty(roomId);
     });
 
-    // Quitter la partie (et prévenir l’adversaire)
     socket.on("room_quit", ({ roomId }) => {
       const room = rooms[roomId];
       if (!room) return;
@@ -245,7 +232,6 @@ function initWebsocket(server) {
     });
 
     // Réception d'un coup
-    // payload attendu: { roomId, move: {from,to, ...}, color, nextFen? }
     socket.on("move_piece", ({ roomId, move, color, nextFen }) => {
       const room = rooms[roomId];
       if (!room) {
@@ -253,12 +239,6 @@ function initWebsocket(server) {
         return socket.emit("error", { error: "Room not found" });
       }
 
-      // (Optionnel) appliquer une règle de tour serveur
-      // if (room.turn !== color) {
-      //   return socket.emit("error", { error: "Not your turn" });
-      // }
-
-      // ✅ Persister l'état minimal
       try {
         if (!room.state) room.state = { fen: null, moves: [] };
         if (move && move.from && move.to) {
@@ -271,20 +251,17 @@ function initWebsocket(server) {
         console.error("[WS] move_piece state persist error:", e);
       }
 
-      // Bascule du tour serveur (si tu relies au moteur, remplace par la vraie couleur active)
       room.turn = room.turn === "white" ? "black" : "white";
 
-      // Diffuse le coup aux autres
       socket.to(roomId).emit("move_piece", { move, color, nextFen: room.state.fen || null });
 
-      // Diffuse la mise à jour de tour (aux deux côtés)
       io.to(roomId).emit("turn_update", {
         roomId,
         activeColor: room.turn,
       });
     });
 
-    // ===== MESSAGERIE TEMPS RÉEL =====
+    // ===== MESSAGERIE =====
     socket.on("message:send", async (payload, ack) => {
       try {
         console.log("[WS] message:send reçu:", payload, "from", userId);
@@ -324,7 +301,73 @@ function initWebsocket(server) {
       }
     });
 
-    // ===== Déconnexion socket =====
+    // ===== REMATCH (rejouer) =====
+    // Propose un rematch à l'adversaire de la room
+    socket.on("rematch:request", (p = {}) => {
+      const { roomId, fromUserId, toUserId } = p;
+      if (!roomId || !fromUserId || !toUserId) return;
+      console.log(`[WS] rematch:request room=${roomId} from=${fromUserId} to=${toUserId}`);
+      // on notifie toute la room (front filtrera si besoin)
+      io.to(roomId).emit("rematch:incoming", { roomId, fromUserId, toUserId });
+    });
+
+    // Le destinataire accepte → crée une nouvelle room et inverse les couleurs
+    socket.on("rematch:accept", (p = {}) => {
+      const { roomId, fromUserId, toUserId } = p;
+      if (!roomId || !fromUserId || !toUserId) return;
+
+      const old = rooms[roomId];
+      if (!old) {
+        console.warn(`[WS] rematch:accept but room not found ${roomId}`);
+        return;
+      }
+
+      const newRoomId = uuid();
+      const newRoom = ensureRoom(newRoomId);
+
+      // tente de récupérer les infos joueurs depuis l'ancienne room
+      const a = old.players.find((x) => x.id === fromUserId);
+      const b = old.players.find((x) => x.id === toUserId);
+
+      const aName = a?.username || `User_${String(fromUserId).slice(-4)}`;
+      const bName = b?.username || `User_${String(toUserId).slice(-4)}`;
+
+      // inverse les couleurs par défaut
+      newRoom.assignments[fromUserId] = (a?.color === "white") ? "black" : "white";
+      newRoom.assignments[toUserId]   = (b?.color === "white") ? "black" : "white";
+
+      newRoom.players = [
+        { id: fromUserId, username: aName, color: newRoom.assignments[fromUserId] },
+        { id: toUserId,   username: bName, color: newRoom.assignments[toUserId] },
+      ];
+      newRoom.turn = "white";
+      newRoom.state = { fen: null, moves: [] };
+
+      console.log(`[WS] rematch:accepted → newRoom=${newRoomId}`);
+
+      // Notifie la room d'origine
+      io.to(roomId).emit("rematch:accepted", {
+        roomId,
+        newRoomId,
+        swapColors: true,
+      });
+    });
+
+    socket.on("rematch:decline", (p = {}) => {
+      const { roomId, fromUserId, toUserId } = p;
+      if (!roomId || !fromUserId || !toUserId) return;
+      console.log(`[WS] rematch:decline room=${roomId} from=${fromUserId} to=${toUserId}`);
+      io.to(roomId).emit("rematch:declined", { roomId, fromUserId, toUserId });
+    });
+
+    socket.on("rematch:cancel", (p = {}) => {
+      const { roomId, fromUserId, toUserId } = p;
+      if (!roomId || !fromUserId || !toUserId) return;
+      console.log(`[WS] rematch:cancel room=${roomId} from=${fromUserId} to=${toUserId}`);
+      io.to(roomId).emit("rematch:cancelled", { roomId, fromUserId, toUserId });
+    });
+    // ===== FIN REMATCH =====
+
     socket.on("disconnect", (reason) => {
       console.log(`[WS] disconnect ${username} (${socket.id}) reason=${reason}`);
 
