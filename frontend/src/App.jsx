@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useEffect } from "react";
 import {
   HashRouter as Router,
@@ -17,9 +18,11 @@ import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
-
-// Overlays
 import CapturedStrip from "./components/CapturedStrip";
+
+// NEW
+import Footer from "./components/Footer";
+import Legal from "./pages/Legal";
 
 function PrivateRoute({ children }) {
   const { ready, isAuthenticated } = useAuth();
@@ -35,32 +38,25 @@ function PrivateRoute({ children }) {
   );
 }
 
-export default function App() {
-  // normalisation hash
-  useEffect(() => {
-    const hasHash = !!window.location.hash;
-    const path = window.location.pathname;
-    if (!hasHash && path && path !== "/") {
-      const next = `/#${path}${window.location.search || ""}`;
-      window.location.replace(next);
-    }
-  }, []);
-
+// Wrapper pour pouvoir tester la route et masquer le footer pendant la partie
+function AppShell() {
   const { currentRoomId, myColor } = useGameUiStore();
+  const location = useLocation();
+  const onPlayRoute = location.pathname.startsWith("/play/");
 
   return (
-    <AuthProvider>
-      <Router>
-        <NavBar
-          roomId={currentRoomId || undefined}
-          color={myColor || undefined}
-        />
-        <CapturedStrip />
+    <div className="min-h-screen flex flex-col bg-stone-900">
+      <NavBar roomId={currentRoomId || undefined} color={myColor || undefined} />
+      <CapturedStrip />
 
+      <div className="flex-1">
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+
+          {/* Legal */}
+          <Route path="/legal" element={<Legal />} />
 
           {/* Protected */}
           <Route
@@ -117,6 +113,29 @@ export default function App() {
           <Route path="/" element={<Navigate to="/lobby" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+      </div>
+
+      {/* on masque le footer pendant la partie 3D */}
+      {!onPlayRoute && <Footer />}
+    </div>
+  );
+}
+
+export default function App() {
+  // normalisation hash
+  useEffect(() => {
+    const hasHash = !!window.location.hash;
+    const path = window.location.pathname;
+    if (!hasHash && path && path !== "/") {
+      const next = `/#${path}${window.location.search || ""}`;
+      window.location.replace(next);
+    }
+  }, []);
+
+  return (
+    <AuthProvider>
+      <Router>
+        <AppShell />
       </Router>
     </AuthProvider>
   );
