@@ -7,7 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export default function NavBar() {
   // Auth / routing
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pathname = location?.pathname || "/";
@@ -23,7 +23,7 @@ export default function NavBar() {
   const turnColor   = useGameUiStore((s) => s.turnColor);
   const myTurn      = useGameUiStore((s) => s.myTurn);
   const players     = useGameUiStore((s) => s.players) || [];
-  const totalUnread = useMessageStore((s) => s.totalUnread()); // 🔔 somme non-lus
+  const totalUnread = useMessageStore((s) => s.totalUnread());
 
   if (!user) return null;
 
@@ -53,11 +53,6 @@ export default function NavBar() {
   const handleResume = () => {
     if (!roomId) return;
     navigate(`/play/${roomId}`);
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
   };
 
   // Helpers affichage tour
@@ -90,14 +85,13 @@ export default function NavBar() {
     <>
       {/* --- Fixed top bar --- */}
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-stone-800 bg-stone-900/95 backdrop-blur supports-[backdrop-filter]:bg-stone-900/75">
-        {/* Barre du haut */}
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex h-14 items-center justify-between">
             <Link to="/lobby" className="flex items-center gap-2 font-semibold text-white">
               <span className="text-xl">Immersive Chess ♔</span>
             </Link>
 
-            {/* Burger (mobile) avec badge non-lus */}
+            {/* Burger (mobile) */}
             <button
               onClick={() => setOpen((v) => !v)}
               className="relative md:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl
@@ -110,12 +104,9 @@ export default function NavBar() {
               <svg viewBox="0 0 24 24" className="h-5 w-5 text-stone-100" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 {open ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M3 6h18M3 12h18M3 18h18" />}
               </svg>
-
-              {/* 🔔 Badge non-lus visible même menu fermé */}
               {totalUnread > 0 && (
                 <span
                   className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center"
-                  title={`${totalUnread} nouveau${totalUnread>1?"x":""} message${totalUnread>1?"s":""}`}
                 >
                   {totalUnread > 99 ? "99+" : totalUnread}
                 </span>
@@ -142,16 +133,10 @@ export default function NavBar() {
                 />
                 <span className="hidden sm:inline">{username || "Mon profil"}</span>
               </Link>
-              <button
-                onClick={handleLogout}
-                className="ml-1 text-sm px-3 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium"
-              >
-                Déconnexion
-              </button>
             </nav>
           </div>
 
-          {/* Menu mobile (drop under fixed bar) */}
+          {/* Menu mobile */}
           <div
             id="mobile-menu"
             className={`md:hidden overflow-hidden transition-[max-height] duration-300 ${open ? "max-h-64" : "max-h-0"}`}
@@ -177,21 +162,15 @@ export default function NavBar() {
                 />
                 <span>{username || "Mon profil"}</span>
               </Link>
-              <button
-                onClick={() => { handleLogout(); setOpen(false); }}
-                className="px-1 text-left text-red-400 hover:text-red-300"
-              >
-                ⏻ Déconnexion
-              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Spacer pour compenser la fixed bar (h-14 = 56px) */}
+      {/* Spacer pour compenser la fixed bar */}
       <div aria-hidden className="h-14" />
 
-      {/* --- In-game info bar: dans le flux normal (plus dans le header) --- */}
+      {/* Barre info partie */}
       {roomId && (
         <div className="w-full py-2">
           <div className="mx-auto max-w-6xl px-3 sm:px-6">
@@ -200,7 +179,6 @@ export default function NavBar() {
                          flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2
                          text-stone-100 text-base tracking-wide"
             >
-              {/* Gauche : pastille + joueurs (desktop) */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                 <TurnPill />
                 {playersList && (
@@ -213,32 +191,27 @@ export default function NavBar() {
                 )}
               </div>
 
-              {/* Droite : Room + copier + Reprendre */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-between sm:justify-end">
                 <span className="opacity-80 shrink-0">Room :</span>
-
                 <button
                   type="button"
                   onClick={handleCopyRoom}
-                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400 focus:outline-none focus:ring-2 focus:ring-white/30"
-                  title="Cliquer pour copier l'ID de la room"
+                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400"
                 >
                   {roomId}
                 </button>
-
                 <button
                   type="button"
                   onClick={handleCopyRoom}
-                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  className="shrink-0 inline-flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded hover:bg-white/20"
                 >
                   {copied ? "✅" : "📋"}
                 </button>
-
                 {!onPlayRoute && (
                   <button
                     type="button"
                     onClick={handleResume}
-                    className="ml-1 hidden sm:inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-white/30"
+                    className="ml-1 hidden sm:inline-flex items-center gap-2 px-3 h-7 rounded-lg border border-stone-700 bg-stone-800/70 hover:bg-stone-700 text-sm font-medium"
                   >
                     ▶️ Reprendre
                   </button>
