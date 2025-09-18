@@ -36,7 +36,7 @@ function SuspendedBadge() {
   );
 }
 
-export function UsersList() {
+export default function UsersList() {
   const { users, fetchUsers } = useUserStore();
   const { user: me } = useAuth();
   const [filter, setFilter] = useState("");
@@ -73,9 +73,8 @@ export function UsersList() {
     const userId = target?._id ?? target?.id;
     if (!userId) return;
     const next = !target?.isSuspended;
-    const label = next ? "suspendre" : "réactiver";
 
-    if (!window.confirm(`Confirmer ${label} ${target?.username || "cet utilisateur"} ?`)) {
+    if (!window.confirm(`Confirmer ${next ? "suspendre" : "réactiver"} ${target?.username || "cet utilisateur"} ?`)) {
       return;
     }
 
@@ -123,8 +122,9 @@ export function UsersList() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center">
-      <div className="bg-stone-800 text-white rounded-lg p-6 w-full max-w-4xl mx-auto">
+    // ✅ Pas de h-screen pour éviter le conflit avec le footer fixe
+    <div className="min-h-[60vh] py-10 px-4 flex items-start justify-center">
+      <div className="bg-stone-800 text-white rounded-lg p-6 w-full max-w-4xl mx-auto shadow-lg border border-stone-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center space-x-2 text-xl font-semibold">
             <FaUsers /> <span>Liste des utilisateurs</span>
@@ -143,7 +143,7 @@ export function UsersList() {
 
         <div className="relative mb-6">
           <FiSearch
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
             size={18}
           />
           <input
@@ -155,7 +155,7 @@ export function UsersList() {
           />
         </div>
 
-        <ul className="space-y-2 max-h-[60vh] overflow-y-auto">
+        <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           {sorted.map((u, i) => {
             const userId = u?._id ?? u?.id;
             const encodedId = userId ? encodeURIComponent(String(userId)) : null;

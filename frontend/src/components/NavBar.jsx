@@ -1,4 +1,3 @@
-// src/components/NavBar.jsx
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
@@ -83,7 +82,7 @@ export default function NavBar() {
 
   return (
     <>
-      {/* --- Fixed top bar --- */}
+      {/* --- Barre fixe en haut --- */}
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-stone-800 bg-stone-900/95 backdrop-blur supports-[backdrop-filter]:bg-stone-900/75">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex h-14 items-center justify-between">
@@ -167,7 +166,7 @@ export default function NavBar() {
         </div>
       </header>
 
-      {/* Spacer pour compenser la fixed bar */}
+      {/* Spacer pour compenser la barre fixe */}
       <div aria-hidden className="h-14" />
 
       {/* Barre info partie */}
@@ -197,6 +196,7 @@ export default function NavBar() {
                   type="button"
                   onClick={handleCopyRoom}
                   className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400"
+                  title="Copier l'ID de la room"
                 >
                   {roomId}
                 </button>
@@ -204,6 +204,7 @@ export default function NavBar() {
                   type="button"
                   onClick={handleCopyRoom}
                   className="shrink-0 inline-flex items-center justify-center w-7 h-7 sm:w-6 sm:h-6 rounded hover:bg-white/20"
+                  title="Copier"
                 >
                   {copied ? "✅" : "📋"}
                 </button>

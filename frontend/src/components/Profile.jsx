@@ -109,8 +109,9 @@ export function OwnProfile() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 gap-4">
-      {/* Carte profil */}
+    // ✅ Pas de bg noir ici, on laisse le wrapper App gérer le fond clair
+    <div className="flex flex-col items-center justify-start min-h-[60vh] p-6 gap-4 py-10">
+      {/* Carte profil (sombre) */}
       <form
         onSubmit={handleSubmit}
         noValidate
@@ -127,7 +128,7 @@ export function OwnProfile() {
               e.currentTarget.src = "/default-avatar.jpg";
             }}
           />
-          <label className="cursor-pointer text-blue-400 hover:underline">
+          <label className="cursor-pointer text-blue-600 hover:underline">
             Changer la photo
             <input
               type="file"
@@ -223,21 +224,21 @@ export function UserProfile({ id: propId }) {
 
   if (err) {
     return (
-      <div className="flex items-center justify-center p-6 text-red-400">
+      <div className="flex items-center justify-center p-6 text-red-600">
         {err}
       </div>
     );
   }
   if (!data) {
     return (
-      <div className="flex items-center justify-center p-6 text-stone-300">
+      <div className="flex items-center justify-center p-6 text-stone-700">
         Chargement…
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-6">
+    <div className="flex items-center justify-center min-h-[60vh] p-6 py-10">
       <div className="w-full max-w-md bg-stone-900 border border-stone-700 rounded-xl text-stone-100 p-6">
         <div className="flex flex-col items-center gap-3">
           <img

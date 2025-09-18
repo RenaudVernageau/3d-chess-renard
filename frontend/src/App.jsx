@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useEffect } from "react";
 import {
   HashRouter as Router,
@@ -38,18 +37,22 @@ function PrivateRoute({ children }) {
   );
 }
 
-// Wrapper pour pouvoir tester la route et masquer le footer pendant la partie
 function AppShell() {
   const { currentRoomId, myColor } = useGameUiStore();
   const location = useLocation();
   const onPlayRoute = location.pathname.startsWith("/play/");
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-900">
+    <div
+      className={`min-h-screen flex flex-col ${
+        onPlayRoute ? "bg-black" : "bg-gradient-to-b from-white to-stone-100"
+      }`}
+    >
       <NavBar roomId={currentRoomId || undefined} color={myColor || undefined} />
       <CapturedStrip />
 
-      <div className="flex-1">
+      {/* Zone de contenu – on laisse une marge basse quand le footer est visible */}
+      <div className={`${onPlayRoute ? "" : "pb-14"} flex-1`}>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
@@ -115,7 +118,7 @@ function AppShell() {
         </Routes>
       </div>
 
-      {/* on masque le footer pendant la partie 3D */}
+      {/* Spacer + footer fixe (masqué pendant la 3D) */}
       {!onPlayRoute && <Footer />}
     </div>
   );
