@@ -13,15 +13,13 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
 import { OwnProfile, UserProfile } from "./components/Profile";
-import UsersList from "./components/UsersList";
+import { UsersList } from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
-import CapturedStrip from "./components/CapturedStrip";
 
-// NEW
-import Footer from "./components/Footer";
-import Legal from "./pages/Legal";
+// Overlays
+import CapturedStrip from "./components/CapturedStrip";
 
 function PrivateRoute({ children }) {
   const { ready, isAuthenticated } = useAuth();
@@ -37,29 +35,32 @@ function PrivateRoute({ children }) {
   );
 }
 
-function AppShell() {
+export default function App() {
+  // normalisation hash
+  useEffect(() => {
+    const hasHash = !!window.location.hash;
+    const path = window.location.pathname;
+    if (!hasHash && path && path !== "/") {
+      const next = `/#${path}${window.location.search || ""}`;
+      window.location.replace(next);
+    }
+  }, []);
+
   const { currentRoomId, myColor } = useGameUiStore();
-  const location = useLocation();
-  const onPlayRoute = location.pathname.startsWith("/play/");
 
   return (
-    <div
-      className={`min-h-screen flex flex-col ${
-        onPlayRoute ? "bg-black" : "bg-gradient-to-b from-white to-stone-100"
-      }`}
-    >
-      <NavBar roomId={currentRoomId || undefined} color={myColor || undefined} />
-      <CapturedStrip />
+    <AuthProvider>
+      <Router>
+        <NavBar
+          roomId={currentRoomId || undefined}
+          color={myColor || undefined}
+        />
+        <CapturedStrip />
 
-      {/* Zone de contenu – on laisse une marge basse quand le footer est visible */}
-      <div className={`${onPlayRoute ? "" : "pb-14"} flex-1`}>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-
-          {/* Legal */}
-          <Route path="/legal" element={<Legal />} />
 
           {/* Protected */}
           <Route
@@ -116,29 +117,6 @@ function AppShell() {
           <Route path="/" element={<Navigate to="/lobby" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-      </div>
-
-      {/* Spacer + footer fixe (masqué pendant la 3D) */}
-      {!onPlayRoute && <Footer />}
-    </div>
-  );
-}
-
-export default function App() {
-  // normalisation hash
-  useEffect(() => {
-    const hasHash = !!window.location.hash;
-    const path = window.location.pathname;
-    if (!hasHash && path && path !== "/") {
-      const next = `/#${path}${window.location.search || ""}`;
-      window.location.replace(next);
-    }
-  }, []);
-
-  return (
-    <AuthProvider>
-      <Router>
-        <AppShell />
       </Router>
     </AuthProvider>
   );

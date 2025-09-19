@@ -169,20 +169,20 @@ export default function NavBar() {
       {/* Spacer pour compenser la barre fixe */}
       <div aria-hidden className="h-14" />
 
-      {/* Barre info partie */}
+      {/* Bandeau info partie — PLEINE LARGEUR */}
       {roomId && (
-        <div className="w-full py-2">
-          <div className="mx-auto max-w-6xl px-3 sm:px-6">
+        <div className="w-full py-2 bg-stone-900/90 border-y border-stone-700">
+          <div className="px-3 sm:px-6">
             <div
-              className="mx-auto max-w-sm sm:max-w-none rounded-xl bg-stone-900/90 border border-stone-700
-                         flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 py-2
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2
                          text-stone-100 text-base tracking-wide"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+              {/* Gauche : état du tour + joueurs */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 min-w-0">
                 <TurnPill />
                 {playersList && (
                   <span
-                    className="hidden sm:inline truncate max-w-[40vw] font-medium"
+                    className="hidden sm:inline truncate font-medium"
                     title={playersList}
                   >
                     Joueurs : {playersList}
@@ -190,12 +190,13 @@ export default function NavBar() {
                 )}
               </div>
 
+              {/* Droite : Room + copier + reprendre */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-between sm:justify-end">
                 <span className="opacity-80 shrink-0">Room :</span>
                 <button
                   type="button"
                   onClick={handleCopyRoom}
-                  className="truncate max-w-[40vw] sm:max-w-[24vw] text-left underline underline-offset-2 hover:text-blue-400"
+                  className="truncate max-w-[40vw] sm:max-w-[32vw] text-left underline underline-offset-2 hover:text-blue-400"
                   title="Copier l'ID de la room"
                 >
                   {roomId}
