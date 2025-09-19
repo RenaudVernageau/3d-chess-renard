@@ -1,3 +1,4 @@
+// src/components/NavBar.jsx
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useGameUiStore } from "../store/useGameUiStore";
@@ -18,6 +19,7 @@ export default function NavBar() {
 
   // Stores
   const roomId      = useGameUiStore((s) => s.currentRoomId);
+  const isInGame    = useGameUiStore((s) => s.isInGame);
   const color       = useGameUiStore((s) => s.myColor);
   const turnColor   = useGameUiStore((s) => s.turnColor);
   const myTurn      = useGameUiStore((s) => s.myTurn);
@@ -79,6 +81,9 @@ export default function NavBar() {
         <span className="whitespace-nowrap">{turnText}</span>
       </span>
     ) : null;
+
+  // ⛔️ IMPORTANT : on n’affiche la bannière session que si la partie est active
+  const showSessionBanner = Boolean(isInGame && roomId);
 
   return (
     <>
@@ -170,7 +175,7 @@ export default function NavBar() {
       <div aria-hidden className="h-14" />
 
       {/* Bandeau info partie — PLEINE LARGEUR */}
-      {roomId && (
+      {showSessionBanner && (
         <div className="w-full py-2 bg-stone-900/90 border-y border-stone-700">
           <div className="px-3 sm:px-6">
             <div

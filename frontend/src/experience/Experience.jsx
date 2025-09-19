@@ -16,22 +16,20 @@ export default function Experience() {
   const navigate = useNavigate();
   const { socket, connected, emit, on, off } = useWebSocket(user?.token);
 
-  const [players, setPlayers] = useState([]); // [{id,username,color}]
-  const [color, setColor] = useState(null); // "white" | "black"
+  const [players, setPlayers] = useState([]);
+  const [color, setColor] = useState(null);
   const [peerQuit, setPeerQuit] = useState(false);
-  const [gameOver, setGameOver] = useState(null); // { reason, winner }
+  const [gameOver, setGameOver] = useState(null);
   const boardRef = useRef(null);
 
   const setGameUi   = useGameUiStore((s) => s.setGameUi);
-  const leaveGame   = useGameUiStore((s) => s.leaveGame); // reset centralisé
-  const [quitting, setQuitting] = useState(false);        // anti double-clic
+  const leaveGame   = useGameUiStore((s) => s.leaveGame);
+  const [quitting, setQuitting] = useState(false);
 
-  // Rematch
   const [rematchIncoming, setRematchIncoming] = useState(null);
   const [rematchPending, setRematchPending] = useState(false);
   const rematchTimerRef = useRef(null);
 
-  // Guards
   const listenersAttached = useRef(false);
   const joinedOnceForRoom = useRef(false);
   const lastStateReqAt = useRef(0);
@@ -284,30 +282,26 @@ export default function Experience() {
     );
   }
 
-  // Quit propre — on efface l'état AVANT les émissions, et on pose une fenêtre d'ignorance pour le Lobby
+  // Quit propre — on efface l'état AVANT tout et on invalide la session UI
   const handleQuitGame = () => {
     if (quitting) return;
     setQuitting(true);
 
     try {
-      // 1) Ignorer les events de room pendant 1.5s côté Lobby
+      // invalide toute réactivité lobby pendant 1.5s (évite yo-yo)
       localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 1500));
 
-      // 2) Nettoyage immédiat de l'état client (empêche auto-join)
-      leaveGame(); // doit mettre currentRoomId=null, isInGame=false, etc.
+      // purge IMMEDIATE de l'état session (coupe NavBar/Resume/etc.)
+      leaveGame();
 
-      // 3) Émissions serveur (désormais sans risque de rejoin)
+      // notifications serveur (sans risque de rejoin côté client)
       if (roomId) {
         emit("room_quit", { roomId });
         emit("leave_room", { roomId });
       }
-    } catch (_e) {
-      // noop
-    }
+    } catch (_) {}
 
     clearTimeout(rematchTimerRef.current);
-
-    // 4) Redirection finale
     navigate("/lobby", { replace: true });
   };
 
@@ -438,7 +432,6 @@ export default function Experience() {
     </div>
   ) : null;
 
-  // ⬇️ Matériel caché sur mobile, visible à partir de md
   const materialPill = (
     <div className="absolute top-2 left-2 z-40 hidden md:block">
       <MaterialPill />
@@ -461,7 +454,9 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <div className="flex-1 relative">
-        {materialPill}
+        <div className="absolute top-2 left-2 z-40 hidden md:block">
+          <MaterialPill />
+        </div>
         {quitButton}
         {peerQuitModal}
         {gameOverModal}
@@ -471,6 +466,14 @@ export default function Experience() {
           shadows
           dpr={[1, 1.5]}
           camera={{ fov: 45, near: 0.1, far: 200 }}
+          onCreated={({ gl }) => {
+            const canvas = gl.getContext()?.canvas || gl.domElement;
+            // Empêche la propagation d'un "context lost" (évite le log)
+            const prevent = (e) => {
+              try { e.preventDefault(); } catch {}
+            };
+            canvas?.addEventListener("webglcontextlost", prevent, { passive: false });
+          }}
         >
           <Controls isWhite={color === "white"} />
           <Lights />

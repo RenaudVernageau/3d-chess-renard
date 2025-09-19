@@ -71,15 +71,32 @@ export const useGameUiStore = create()(
 
       /**
        * Quitter la partie explicitement
+       * - Vide l'état mémoire
+       * - Purge les traces persistées susceptibles d'afficher la session (roomId, flags temporaires)
        */
-      leaveGame: () =>
+      leaveGame: () => {
+        // Purge clés potentiellement utilisées ailleurs pour "reprendre"
+        try {
+          // flags temporaires de navigation / lobby
+          localStorage.removeItem("ignoreRoomEventsUntil");
+          // si tu as déjà stocké la room dans localStorage par le passé :
+          localStorage.removeItem("currentRoomId");
+          localStorage.removeItem("lastRoomId");
+        } catch (_) {}
+        try {
+          // On retire aussi d'un éventuel localStorage parallèle
+          sessionStorage.removeItem("currentRoomId");
+          sessionStorage.removeItem("lastRoomId");
+        } catch (_) {}
+
         set({
           currentRoomId: null,
           myColor: undefined,
           players: [],
           isInGame: false,
           captures: { w: [], b: [] },
-        }),
+        });
+      },
 
       // --- Captures & matériel ---
       resetCaptures: () => set({ captures: { w: [], b: [] } }),
