@@ -15,6 +15,12 @@ export default function Lobby() {
     if (!socket) return;
 
     const handleRoomEvent = ({ roomId }) => {
+      // ⛔️ Fenêtre d'ignorance juste après un quit (évite le "retour auto")
+      const ignoreUntil = Number(localStorage.getItem("ignoreRoomEventsUntil") || 0);
+      if (Date.now() < ignoreUntil) return;
+      // On nettoie le flag une fois passé
+      if (ignoreUntil) localStorage.removeItem("ignoreRoomEventsUntil");
+
       if (roomId) {
         navigate(`/play/${roomId}`);
       }

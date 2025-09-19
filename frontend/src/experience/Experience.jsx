@@ -1,4 +1,4 @@
-//src/experience/Experience.jsx
+// src/experience/Experience.jsx
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useParams, Navigate, useNavigate } from "react-router-dom";
@@ -284,21 +284,31 @@ export default function Experience() {
     );
   }
 
-  // Quit propre
+  // Quit propre — on efface l'état AVANT les émissions, et on pose une fenêtre d'ignorance pour le Lobby
   const handleQuitGame = () => {
     if (quitting) return;
     setQuitting(true);
+
     try {
+      // 1) Ignorer les events de room pendant 1.5s côté Lobby
+      localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 1500));
+
+      // 2) Nettoyage immédiat de l'état client (empêche auto-join)
+      leaveGame(); // doit mettre currentRoomId=null, isInGame=false, etc.
+
+      // 3) Émissions serveur (désormais sans risque de rejoin)
       if (roomId) {
         emit("room_quit", { roomId });
         emit("leave_room", { roomId });
       }
-    } catch (_) {}
+    } catch (_e) {
+      // noop
+    }
+
     clearTimeout(rematchTimerRef.current);
-    leaveGame();
-    setTimeout(() => {
-      navigate("/lobby", { replace: true });
-    }, 10);
+
+    // 4) Redirection finale
+    navigate("/lobby", { replace: true });
   };
 
   const handleGameOverLocal = (payload) => {

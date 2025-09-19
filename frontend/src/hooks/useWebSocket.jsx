@@ -32,17 +32,19 @@ export default function useWebSocket(token) {
 
     socketRef.current = socket;
 
+    // ⛔️ Auto-join uniquement si l'utilisateur est "en partie"
     const rejoinIfNeeded = () => {
       const state = useGameUiStore.getState();
-      const roomId = state.currentRoomId;
+      const { currentRoomId: roomId, isInGame } = state;
+      if (!isInGame || !roomId) return;
+
       const username =
         localStorage.getItem("username") ||
         state.players?.[0] ||
         "player";
-      if (roomId) {
-        socket.emit("join_room", { roomId, username });
-        socket.emit("state_request", { roomId });
-      }
+
+      socket.emit("join_room", { roomId, username });
+      socket.emit("state_request", { roomId });
     };
 
     // ===== Connexion
@@ -100,14 +102,9 @@ export default function useWebSocket(token) {
     const hydrateSnapshot = (snap) => {
       // snap: { fen, captures:{w:[],b:[]}, turn:'w'|'b', movesCount }
       const state = useGameUiStore.getState();
-      // on n’écrase que les champs UI qu’on gère côté client
       state.setGameUi({
-        // garde currentRoomId / players / etc. inchangés
-        // remonte les captures serveur (miroir)
         captures: snap?.captures || { w: [], b: [] },
       });
-      // NOTE: si tu ajoutes un chargement de FEN côté client, c’est ici
-      // que tu appelleras ton hook pour synchroniser l’échiquier.
     };
 
     socket.on("piece:capture", applyCapture);
