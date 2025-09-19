@@ -24,7 +24,7 @@ export default function CapturedStrip() {
 
   const Row = ({ title, counts }) => (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase text-gray-600">{title}</span>
+      <span className="text-[10px] uppercase text-black">{title}</span>
       <div className="flex gap-1 text-sm">
         {order.filter(k => counts[k]).map(k => (
           <span key={k} className="px-2 py-0.5 rounded bg-white/70 backdrop-blur shadow-sm">
