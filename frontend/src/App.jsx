@@ -9,6 +9,7 @@ import {
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import NavBar from "./components/NavBar";
+import Footer from "./components/Footer";   // ✅ import
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
@@ -35,6 +36,88 @@ function PrivateRoute({ children }) {
   );
 }
 
+function AppRoutes() {
+  const { currentRoomId, myColor } = useGameUiStore();
+  const location = useLocation();
+
+  // ✅ On cache le footer sur la route /play/:roomId
+  const hideFooter = location.pathname.startsWith("/play/");
+
+  return (
+    <>
+      <NavBar
+        roomId={currentRoomId || undefined}
+        color={myColor || undefined}
+      />
+      <CapturedStrip />
+
+      <Routes>
+        {/* Public */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected */}
+        <Route
+          path="/lobby"
+          element={
+            <PrivateRoute>
+              <Lobby />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/play/:roomId"
+          element={
+            <PrivateRoute>
+              <Experience />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <OwnProfile />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <PrivateRoute>
+              <UsersList />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/users/:id"
+          element={
+            <PrivateRoute>
+              <UserProfile />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <PrivateRoute>
+              <MessagingPage />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Redirects */}
+        <Route path="/play" element={<Navigate to="/lobby" replace />} />
+        <Route path="/" element={<Navigate to="/lobby" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+
+      {/* ✅ Footer visible sauf dans Experience */}
+      {!hideFooter && <Footer />}
+    </>
+  );
+}
+
 export default function App() {
   // normalisation hash
   useEffect(() => {
@@ -46,77 +129,10 @@ export default function App() {
     }
   }, []);
 
-  const { currentRoomId, myColor } = useGameUiStore();
-
   return (
     <AuthProvider>
       <Router>
-        <NavBar
-          roomId={currentRoomId || undefined}
-          color={myColor || undefined}
-        />
-        <CapturedStrip />
-
-        <Routes>
-          {/* Public */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-
-          {/* Protected */}
-          <Route
-            path="/lobby"
-            element={
-              <PrivateRoute>
-                <Lobby />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/play/:roomId"
-            element={
-              <PrivateRoute>
-                <Experience />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <PrivateRoute>
-                <OwnProfile />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <PrivateRoute>
-                <UsersList />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/users/:id"
-            element={
-              <PrivateRoute>
-                <UserProfile />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/messages"
-            element={
-              <PrivateRoute>
-                <MessagingPage />
-              </PrivateRoute>
-            }
-          />
-
-          {/* Redirects */}
-          <Route path="/play" element={<Navigate to="/lobby" replace />} />
-          <Route path="/" element={<Navigate to="/lobby" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+        <AppRoutes />
       </Router>
     </AuthProvider>
   );
