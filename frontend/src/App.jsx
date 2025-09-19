@@ -9,7 +9,7 @@ import {
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import NavBar from "./components/NavBar";
-import Footer from "./components/Footer";   // ✅ import
+import Footer from "./components/Footer";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
@@ -40,7 +40,7 @@ function AppRoutes() {
   const { currentRoomId, myColor } = useGameUiStore();
   const location = useLocation();
 
-  // ✅ On cache le footer sur la route /play/:roomId
+  // ✅ Masquer le footer pendant la partie
   const hideFooter = location.pathname.startsWith("/play/");
 
   return (
@@ -112,20 +112,20 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
-      {/* ✅ Footer visible sauf dans Experience */}
+      {/* ✅ Footer visible partout sauf dans Experience */}
       {!hideFooter && <Footer />}
     </>
   );
 }
 
 export default function App() {
-  // normalisation hash
+  // normalisation hash SANS hard reload
   useEffect(() => {
     const hasHash = !!window.location.hash;
     const path = window.location.pathname;
     if (!hasHash && path && path !== "/") {
-      const next = `/#${path}${window.location.search || ""}`;
-      window.location.replace(next);
+      // ⬇️ évite un rechargement complet et donc la perte du store
+      window.location.hash = `#${path}${window.location.search || ""}`;
     }
   }, []);
 
