@@ -40,8 +40,8 @@ function AppRoutes() {
   const { currentRoomId, myColor } = useGameUiStore();
   const location = useLocation();
 
-  // ✅ Masquer le footer pendant la partie
-  const hideFooter = location.pathname.startsWith("/play/");
+  const path = location.pathname;
+  const hideFooter = path.startsWith("/play/") || path.startsWith("/messages");
 
   return (
     <>
