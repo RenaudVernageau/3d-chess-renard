@@ -24,7 +24,7 @@ export default function CapturedStrip() {
 
   const Row = ({ title, counts }) => (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] uppercase text-black">{title}</span>
+      <span className="text-[10px] uppercase text-gray-600">{title}</span>
       <div className="flex gap-1 text-sm">
         {order.filter(k => counts[k]).map(k => (
           <span key={k} className="px-2 py-0.5 rounded bg-white/70 backdrop-blur shadow-sm">
@@ -36,10 +36,11 @@ export default function CapturedStrip() {
   );
 
   return (
-    <div className="fixed left-4 bottom-4 z-40 p-2 rounded-2xl bg-white/40 backdrop-blur-sm shadow
-                    flex flex-col gap-1 text-black">
-      {Object.keys(wCounts).length ? <Row title="Blancs" counts={wCounts} /> : null}
-      {Object.keys(bCounts).length ? <Row title="Noirs" counts={bCounts} /> : null}
+    // 🔒 caché sur mobile, visible à partir de md
+    <div className="hidden md:flex fixed left-4 bottom-4 z-40 p-2 rounded-2xl bg-white/40 backdrop-blur-sm shadow
+                    flex-col gap-1 text-black">
+      {Object.keys(wCounts).length ? <Row title="BLANCS" counts={wCounts} /> : null}
+      {Object.keys(bCounts).length ? <Row title="NOIRS" counts={bCounts} /> : null}
     </div>
   );
 }

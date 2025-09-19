@@ -22,11 +22,13 @@ export default function Experience() {
   const [gameOver, setGameOver] = useState(null); // { reason, winner }
   const boardRef = useRef(null);
 
-  const setGameUi = useGameUiStore((s) => s.setGameUi);
+  const setGameUi   = useGameUiStore((s) => s.setGameUi);
+  const leaveGame   = useGameUiStore((s) => s.leaveGame); // reset centralisé
+  const [quitting, setQuitting] = useState(false);        // anti double-clic
 
-  // === Rematch (état local) ===
-  const [rematchIncoming, setRematchIncoming] = useState(null); // { roomId, fromUserId, toUserId }
-  const [rematchPending, setRematchPending] = useState(false);  // j'ai proposé, en attente
+  // Rematch
+  const [rematchIncoming, setRematchIncoming] = useState(null);
+  const [rematchPending, setRematchPending] = useState(false);
   const rematchTimerRef = useRef(null);
 
   // Guards
@@ -35,7 +37,6 @@ export default function Experience() {
   const lastStateReqAt = useRef(0);
   const lastAppliedMoveCount = useRef(0);
 
-  // Expose UI globale
   useEffect(() => {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
@@ -58,7 +59,6 @@ export default function Experience() {
   const sideToHumanColor = (side) =>
     side === "w" ? "white" : side === "b" ? "black" : undefined;
 
-  // Attache les listeners WS
   useEffect(() => {
     if (!roomId || !connected || !socket) return;
 
@@ -82,7 +82,7 @@ export default function Experience() {
       const myColor = yourColor || fallback;
       setColor((prev) => prev || myColor);
       setGameUi({ myColor: myColor });
-      if (activeColor === "white" || activeColor === "black") {
+      if (activeColor === "white" || "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
     };
@@ -94,7 +94,7 @@ export default function Experience() {
       const myColor = yourColor || fallback;
       setColor((prev) => prev || myColor);
       setGameUi({ myColor: myColor });
-      if (activeColor === "white" || activeColor === "black") {
+      if (activeColor === "white" || "black") {
         setGameUi({ turnColor: activeColor, myTurn: myColor === activeColor });
       }
     };
@@ -125,7 +125,6 @@ export default function Experience() {
       }
     };
 
-    // Re-synchro legacy
     const handleStateSync = (state) => {
       try {
         const moves = Array.isArray(state?.moves) ? state.moves : [];
@@ -176,13 +175,10 @@ export default function Experience() {
       setGameOver(payload || { reason: "unknown", winner: null });
     };
 
-    // ===== Listeners REMATCH =====
+    // ===== Rematch =====
     const handleRematchIncoming = (p) => {
-      // p: { roomId, fromUserId, toUserId }
-      // on ne montre le popup qu'au destinataire
       if (p?.toUserId !== user?.id && String(p?.toUserId) !== String(user?.id)) return;
       setRematchIncoming(p);
-      // expire au bout de 30s
       clearTimeout(rematchTimerRef.current);
       rematchTimerRef.current = setTimeout(() => setRematchIncoming(null), 30000);
     };
@@ -288,28 +284,30 @@ export default function Experience() {
     );
   }
 
+  // Quit propre
   const handleQuitGame = () => {
-    if (roomId) emit("room_quit", { roomId });
-    setGameUi({
-      currentRoomId: null,
-      myColor: undefined,
-      players: [],
-      isInGame: false,
-      turnColor: undefined,
-      myTurn: undefined,
-    });
-    navigate("/lobby", { replace: true });
+    if (quitting) return;
+    setQuitting(true);
+    try {
+      if (roomId) {
+        emit("room_quit", { roomId });
+        emit("leave_room", { roomId });
+      }
+    } catch (_) {}
+    clearTimeout(rematchTimerRef.current);
+    leaveGame();
+    setTimeout(() => {
+      navigate("/lobby", { replace: true });
+    }, 10);
   };
 
   const handleGameOverLocal = (payload) => {
     setGameOver(payload || { reason: "unknown", winner: null });
   };
 
-  // Trouver l'adversaire (id) pour rematch
   const opponent = players.find((p) => String(p?.id) !== String(user?.id));
   const opponentId = opponent?.id;
 
-  // Popup "l'adversaire te propose un rematch"
   const rematchPrompt = rematchIncoming ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-[92%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
@@ -350,17 +348,7 @@ export default function Experience() {
         </p>
         <div className="flex justify-end gap-3">
           <button
-            onClick={() => {
-              setGameUi({
-                currentRoomId: null,
-                myColor: undefined,
-                players: [],
-                isInGame: false,
-                turnColor: undefined,
-                myTurn: undefined,
-              });
-              navigate("/lobby", { replace: true });
-            }}
+            onClick={handleQuitGame}
             className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
           >
             OK
@@ -429,17 +417,7 @@ export default function Experience() {
           {/* Retour menu */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setGameUi({
-                  currentRoomId: null,
-                  myColor: undefined,
-                  players: [],
-                  isInGame: false,
-                  turnColor: undefined,
-                  myTurn: undefined,
-                });
-                navigate("/lobby", { replace: true });
-              }}
+              onClick={handleQuitGame}
               className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
             >
               Retour au menu
@@ -450,14 +428,22 @@ export default function Experience() {
     </div>
   ) : null;
 
+  // ⬇️ Matériel caché sur mobile, visible à partir de md
+  const materialPill = (
+    <div className="absolute top-2 left-2 z-40 hidden md:block">
+      <MaterialPill />
+    </div>
+  );
+
   const quitButton = (
     <div className="absolute top-2 right-2 z-40">
       <button
         onClick={handleQuitGame}
-        className="rounded-lg bg-red-600 hover:bg-red-700 active:scale-95 px-3 py-1.5 text-sm text-white shadow transition"
+        disabled={quitting}
+        className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95 px-3 py-1.5 text-sm text-white shadow transition"
         title="Quitter la partie et revenir au menu"
       >
-        Quitter la partie
+        {quitting ? "Sortie…" : "Quitter la partie"}
       </button>
     </div>
   );
@@ -465,10 +451,7 @@ export default function Experience() {
   return (
     <div className="flex flex-col w-full h-screen bg-black">
       <div className="flex-1 relative">
-        <div className="absolute top-2 left-2 z-40">
-          <MaterialPill />
-        </div>
-
+        {materialPill}
         {quitButton}
         {peerQuitModal}
         {gameOverModal}

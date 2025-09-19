@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   HashRouter as Router,
   Routes,
   Route,
   Navigate,
   useLocation,
+  useParams,
+  useNavigate,
 } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./hooks/useAuth";
@@ -36,10 +38,41 @@ function PrivateRoute({ children }) {
   );
 }
 
+/**
+ * Garde de route pour synchroniser l'URL /play/:roomId avec le store.
+ * - Si l'URL a un roomId et que le store n'a pas (ou différent) -> on set le store.
+ * - Si pas de roomId -> on redirige au lobby.
+ */
+function RequireRoom({ children }) {
+  const { roomId } = useParams();
+  const navigate = useNavigate();
+  const currentRoomId = useGameUiStore((s) => s.currentRoomId);
+  const setCurrentRoomId = useGameUiStore((s) => s.setCurrentRoomId);
+  const [synced, setSynced] = useState(false);
+
+  useEffect(() => {
+    if (!roomId) {
+      navigate("/lobby", { replace: true });
+      return;
+    }
+    if (currentRoomId !== roomId) {
+      // On aligne le store sur l'URL (reset des captures par défaut -> OK au démarrage)
+      setCurrentRoomId(roomId);
+    }
+    // petit délai pour éviter un flash avant synchro
+    setSynced(true);
+  }, [roomId, currentRoomId, setCurrentRoomId, navigate]);
+
+  if (!roomId) return null;     // redirection en cours
+  if (!synced) return null;     // attend 1 tick de synchro
+  return children;
+}
+
 function AppRoutes() {
   const { currentRoomId, myColor } = useGameUiStore();
   const location = useLocation();
 
+  // ✅ Masquer le footer pendant la partie ET sur la page Messages
   const path = location.pathname;
   const hideFooter = path.startsWith("/play/") || path.startsWith("/messages");
 
@@ -69,7 +102,9 @@ function AppRoutes() {
           path="/play/:roomId"
           element={
             <PrivateRoute>
-              <Experience />
+              <RequireRoom>
+                <Experience />
+              </RequireRoom>
             </PrivateRoute>
           }
         />
@@ -112,7 +147,6 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
-      {/* ✅ Footer visible partout sauf dans Experience */}
       {!hideFooter && <Footer />}
     </>
   );
@@ -124,7 +158,6 @@ export default function App() {
     const hasHash = !!window.location.hash;
     const path = window.location.pathname;
     if (!hasHash && path && path !== "/") {
-      // ⬇️ évite un rechargement complet et donc la perte du store
       window.location.hash = `#${path}${window.location.search || ""}`;
     }
   }, []);
