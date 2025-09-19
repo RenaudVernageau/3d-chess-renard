@@ -13,7 +13,7 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import Lobby from "./components/Lobby";
 import { OwnProfile, UserProfile } from "./components/Profile";
-import { UsersList } from "./components/UsersList";
+import UsersList from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
