@@ -292,7 +292,7 @@ export default function Experience() {
       localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 1500));
 
       // purge IMMEDIATE de l'état session (coupe NavBar/Resume/etc.)
-      leaveGame();
+      leaveGame(); // ⛔️ Ne pas réinitialiser hasQuit ici ou juste après
 
       // notifications serveur (sans risque de rejoin côté client)
       if (roomId) {
@@ -303,9 +303,8 @@ export default function Experience() {
 
     clearTimeout(rematchTimerRef.current);
 
-    // Redirection + reset du flag hasQuit pour permettre de recréer/rejoindre ensuite
+    // Redirection — on laisse hasQuit=true jusqu'à la prochaine vraie entrée en room
     navigate("/lobby", { replace: true });
-    setTimeout(() => useGameUiStore.setState({ hasQuit: false }), 50);
   };
 
   const handleGameOverLocal = (payload) => {
