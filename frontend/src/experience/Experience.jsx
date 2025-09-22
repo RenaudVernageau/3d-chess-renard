@@ -39,7 +39,7 @@ export default function Experience() {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
     return () => {
-      // setGameUi({ isInGame: false, players: [], myColor: undefined });
+      // On ne met PAS isInGame=false ici (sinon la bannière disparaît en changeant de page)
       lastAppliedMoveCount.current = 0;
     };
   }, [roomId, setGameUi]);
@@ -302,7 +302,10 @@ export default function Experience() {
     } catch (_) {}
 
     clearTimeout(rematchTimerRef.current);
+
+    // Redirection + reset du flag hasQuit pour permettre de recréer/rejoindre ensuite
     navigate("/lobby", { replace: true });
+    setTimeout(() => useGameUiStore.setState({ hasQuit: false }), 50);
   };
 
   const handleGameOverLocal = (payload) => {
@@ -376,11 +379,7 @@ export default function Experience() {
             ? "Nulle (règle des 50 coups)"
             : gameOver.reason === "insufficient_material"
             ? "Nulle (matériel insuffisant)"
-            : gameOver.reason === "draw"
-            ? "Match nul"
-            : gameOver.reason === "resign"
-            ? "Abandon"
-            : "Partie terminée"}
+            : "Match nul"}
         </h3>
 
         <p className="text-stone-300 mb-5">
@@ -432,12 +431,6 @@ export default function Experience() {
     </div>
   ) : null;
 
-  const materialPill = (
-    <div className="absolute top-2 left-2 z-40 hidden md:block">
-      <MaterialPill />
-    </div>
-  );
-
   const quitButton = (
     <div className="absolute top-2 right-2 z-40">
       <button
@@ -468,10 +461,7 @@ export default function Experience() {
           camera={{ fov: 45, near: 0.1, far: 200 }}
           onCreated={({ gl }) => {
             const canvas = gl.getContext()?.canvas || gl.domElement;
-            // Empêche la propagation d'un "context lost" (évite le log)
-            const prevent = (e) => {
-              try { e.preventDefault(); } catch {}
-            };
+            const prevent = (e) => { try { e.preventDefault(); } catch {} };
             canvas?.addEventListener("webglcontextlost", prevent, { passive: false });
           }}
         >

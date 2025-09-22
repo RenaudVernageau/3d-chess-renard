@@ -32,11 +32,11 @@ export default function useWebSocket(token) {
 
     socketRef.current = socket;
 
-    // ⛔️ Auto-join uniquement si l'utilisateur est "en partie"
+    // ⛔️ Auto-join uniquement si l'utilisateur est "en partie" ET n'a pas explicitement quitté
     const rejoinIfNeeded = () => {
       const state = useGameUiStore.getState();
-      const { currentRoomId: roomId, isInGame } = state;
-      if (!isInGame || !roomId) return;
+      const { currentRoomId: roomId, isInGame, hasQuit } = state;
+      if (hasQuit || !isInGame || !roomId) return;
 
       const username =
         localStorage.getItem("username") ||
@@ -100,7 +100,6 @@ export default function useWebSocket(token) {
     };
 
     const hydrateSnapshot = (snap) => {
-      // snap: { fen, captures:{w:[],b:[]}, turn:'w'|'b', movesCount }
       const state = useGameUiStore.getState();
       state.setGameUi({
         captures: snap?.captures || { w: [], b: [] },

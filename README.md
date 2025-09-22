@@ -1,4 +1,4 @@
-# ♔ 3D Chess Renard
+# ♔ 3D Immersive chess
 
 A real-time 3D multiplayer chess game with rooms, authentication, and integrated messaging.  
 Built with **React + Vite** (frontend) and **Express + Socket.IO** (backend).  
