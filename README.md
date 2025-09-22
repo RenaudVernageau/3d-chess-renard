@@ -1,144 +1,145 @@
-📦 Prérequis
+# ♔ 3D Chess Renard
 
-Node.js v14 ou supérieur
+A real-time 3D multiplayer chess game with rooms, authentication, and integrated messaging.  
+Built with **React + Vite** (frontend) and **Express + Socket.IO** (backend).  
 
-npm ou yarn
+---
 
-Une base de données MongoDB (Atlas ou locale)
+## 📦 Prerequisites
 
-🗂️ Structure du projet
+- Node.js v18 or higher  
+- npm or yarn  
+- A MongoDB database (Atlas or local)  
 
+---
+
+## 🗂️ Project structure
+
+```
 root/
-├─ frontend/   # Application React (Vite + Tailwind + R3F)
-└─ server/     # API Express + Socket.IO
-    ├─ config/        # Chargement des variables d’environnement
-    ├─ controllers/   # Logique métier (auth, rooms)
-    ├─ middleware/    # Middleware (auth JWT)
-    ├─ routes/        # Définition des endpoints
-    ├─ services/      # Socket.IO, DB connection
-    └─ utils/         # Logger, helpers
+├─ frontend/              # React app (Vite + Tailwind + R3F)
+│   ├─ src/components/    # UI (Board, NavBar, etc.)
+│   ├─ src/experience/    # 3D experience (Canvas, controls)
+│   ├─ src/hooks/         # Custom hooks (useAuth, useWebSocket…)
+│   ├─ src/store/         # Zustand stores (game state, messages)
+│   └─ ...
+└─ server/                # Express + Socket.IO API
+    ├─ config/            # Environment variables
+    ├─ controllers/       # Business logic (auth, rooms)
+    ├─ middleware/        # JWT auth middleware
+    ├─ routes/            # REST endpoints
+    ├─ services/          # Socket.IO, MongoDB connection
+    └─ utils/             # Logger, helpers
+```
 
-🔧 Variables d’environnement
+---
 
-Variable
+## 🔧 Environment variables
 
-Description
+### Backend (`server/.env`)
 
-Exemple
+| Variable       | Description                        | Example                |
+|----------------|------------------------------------|------------------------|
+| `PORT`        | Express server port                | 4000                   |
+| `CORS_ORIGIN` | Allowed CORS origin (frontend)     | http://localhost:5173 |
+| `MONGO_URI`   | MongoDB connection URI             | mongodb+srv://…        |
+| `JWT_SECRET`  | JWT secret key                     | a_long_secure_secret   |
 
-PORT
+### Frontend (`frontend/.env`)
 
-Port pour le serveur Express
+| Variable       | Description                        | Example                |
+|----------------|------------------------------------|------------------------|
+| `VITE_WS_URL` | Socket.IO server URL               | http://localhost:4000 |
 
-4000
+👉 Tip: copy `.env.example` to `.env` in both **server/** and **frontend/** and fill in the values.  
 
-CORS_ORIGIN
+---
 
-Origine autorisée pour les requêtes CORS
+## 🚀 Installation & Run
 
-http://localhost:5173
+### Backend
 
-MONGO_URI
-
-URI de connexion MongoDB
-
-mongodb+srv://...
-
-JWT_SECRET
-
-Clé secrète pour la signature des tokens JWT
-
-votre_secret_long_et_sûr
-
-VITE_WS_URL
-
-URL du serveur Socket.IO (frontend)
-
-http://localhost:4000
-
-Astuce : dupliquez .env.example en .env dans server/ et dans frontend/, puis complétez ces valeurs.
-
-🚀 Installation et lancement
-
-Serveur
-
+```bash
 cd server
 npm install
-# Créez .env à partir de .env.example et renseignez MONGO_URI et JWT_SECRET
+# Create .env from .env.example and configure MONGO_URI + JWT_SECRET
 npm start
+```
 
-Frontend
+### Frontend
 
+```bash
 cd frontend
 npm install
-# Créez .env à partir de .env.example
+# Create .env from .env.example and configure VITE_WS_URL
 npm run dev
+```
 
-Le frontend s’ouvre sur : http://localhost:5173
+Frontend runs at: [http://localhost:5173](http://localhost:5173)  
 
-🔐 Authentification
+---
 
-Le MVP inclut un système d’auth sécurisé via JWT et MongoDB :
+## 🔐 Authentication
 
-InscriptionPOST /api/auth/registerBody : { email, password }Réponse : { userId, token }
+- **Register**:  
+  `POST /api/auth/register`  
+  Body: `{ email, password }` → Response: `{ userId, token }`
 
-ConnexionPOST /api/auth/loginBody : { email, password }Réponse : { userId, token }
+- **Login**:  
+  `POST /api/auth/login`  
+  Body: `{ email, password }` → Response: `{ userId, token }`
 
-Le token doit être envoyé dans l’en-tête Authorization: Bearer <token> pour accéder aux routes protégées.
+⚠️ Protected routes require:  
+```
+Authorization: Bearer <token>
+```
 
-🛠️ Routes API
+---
 
-Auth
+## 🕹️ Features
 
-Méthode
+- 🎨 **3D chessboard** with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)  
+- 🌐 **Real-time multiplayer** (Socket.IO)  
+- 🏠 **Lobby**: create or join a room by ID  
+- ↔️ **Integrated messaging** with notifications  
+- 🔄 **Resume game** with a persistent banner  
+- ♻️ **Rematch**: replay with the same opponent in one click  
+- 🏳️ **Quit game** cleanly (server room released)  
+- 📊 **Live captures & material balance**  
+- 🔔 Sound & visual notifications for messages and events  
 
-Endpoint
+---
 
-Description
+## 🔄 Basic workflow
 
-POST
+1. **Register** or **log in** (API or UI).  
+2. Token is stored on the frontend (localStorage/sessionStorage).  
+3. From the **lobby UI**:  
+   - Create a new game  
+   - Or join an existing one by roomId.  
+4. Play: moves are synced in real time.  
+5. Options: send messages, quit, propose a rematch.  
+6. Resume an active game thanks to the session banner.  
 
-/api/auth/register
+---
 
-Crée un nouvel utilisateur et renvoie un JWT
+## 📸 Screenshots (optional)
 
-POST
+_(to be added)_  
 
-/api/auth/login
+---
 
-Vérifie les identifiants et renvoie un JWT
+## ⚡ Tech stack
 
-Rooms (protégées)
+**Frontend**:  
+- React + Vite  
+- TailwindCSS  
+- Zustand (state management)  
+- React Three Fiber (@react-three/fiber)  
+- Socket.IO client  
 
-Méthode
-
-Endpoint
-
-Description
-
-POST
-
-/api/rooms/create
-
-Crée une partie et renvoie { roomId }
-
-GET
-
-/api/rooms/:roomId
-
-Récupère l’état d’une partie (id, joueurs…)
-
-Seules les requêtes authentifiées (Bearer token) peuvent créer ou rejoindre une room.
-
-🔄 Workflow de base
-
-Créer un compte ou vous connecter (/api/auth/register ou /api/auth/login).
-
-Récupérer le token et le stocker en localStorage.
-
-Lancer le serveur et le frontend (npm start, npm run dev).
-
-Depuis l’UI : créer une partie ou saisir un roomId existant (v. étape 2).
-
-Ouvrir un second onglet pour tester la synchronisation des mouvements.
-
+**Backend**:  
+- Express  
+- Socket.IO  
+- MongoDB + Mongoose  
+- JWT (authentication)  
