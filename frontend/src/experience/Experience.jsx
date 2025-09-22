@@ -281,29 +281,47 @@ export default function Experience() {
     );
   }
 
-  // Quit = resign & leave & purge & lobby (+ WS disconnect pour empêcher tout rebond)
+  // Quit = "resign & leave & purge & lobby" (robuste : ack + timeout)
   const handleQuitGame = async () => {
     if (quitting) return;
     setQuitting(true);
 
+    // Fenêtre anti-yo-yo pour le Lobby / rejoin automatique
     try {
-      // Notifs serveur en best-effort (on ne bloque pas l'UI)
-      try { emit("game:resign", { roomId }, () => {}); } catch {}
-      try { emit("room_quit", { roomId }, () => {}); } catch {}
-      try { emit("leave_room", { roomId }, () => {}); } catch {}
+      localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000));
+    } catch {}
 
-      // Purge locale (bloque tout auto-join grâce à hasQuit=true)
-      leaveGame();
+    // 1) Abandon côté serveur (ACK avec timeout court)
+    await new Promise((resolve) => {
+      let settled = false;
+      const t = setTimeout(() => {
+        if (!settled) { settled = true; resolve({ ok: false, timeout: true }); }
+      }, 1200);
+      try {
+        emit("game:resign", { roomId }, (resp) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(t);
+          resolve(resp || { ok: true });
+        });
+      } catch {
+        if (!settled) { settled = true; clearTimeout(t); resolve({ ok: false }); }
+      }
+    });
 
-      // Coupe la connexion WS pour éviter tout event tardif
-      try { socket?.disconnect?.(); } catch {}
+    // 2) Sortie de room - best effort
+    try {
+      if (roomId) {
+        emit("room_quit", { roomId });
+        emit("leave_room", { roomId });
+      }
+    } catch {}
 
-      // Redirection immédiate
-      navigate("/lobby", { replace: true });
-    } finally {
-      // Au cas où on reste sur la page (erreur improbable), réactiver le bouton
-      setTimeout(() => setQuitting(false), 1200);
-    }
+    // 3) Purge locale (empêche tout auto-resume)
+    leaveGame();
+
+    // 4) Navigation
+    navigate("/lobby", { replace: true });
   };
 
   const handleGameOverLocal = (payload) => {
