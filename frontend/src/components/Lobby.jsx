@@ -6,12 +6,10 @@ import { useAuth } from "../hooks/useAuth";
 import { useGameUiStore } from "../store/useGameUiStore";
 
 /**
- * Règle :
- * - On ignore les EVENTS AUTO (room_created/room_joined) si hasQuit === true OU si la fenêtre temps est active.
- * - On n'empêche PAS l'utilisateur de cliquer si hasQuit === true (c'était le bug).
- *   Les boutons ne sont désactivés QUE pendant la petite fenêtre temporelle.
- * - Au clic manuel (Créer/Rejoindre), on enlève les garde-fous (hasQuit=false + on annule la fenêtre)
- *   pour que l'event de retour soit bien pris en compte.
+ * Lobby simple : pas de garde-fou UI, pas de fenêtre.
+ * - On navigue quand on reçoit room_created / room_joined.
+ * - Les boutons sont toujours actifs.
+ * - Quit ne purge la session que via le bouton “Quitter la partie” (Experience).
  */
 export default function Lobby() {
   const { user } = useAuth();
@@ -21,72 +19,19 @@ export default function Lobby() {
   const [inputRoom, setInputRoom] = useState("");
   const [error, setError] = useState("");
 
-  // Store
-  const hasQuit = useGameUiStore((s) => s.hasQuit);
+  // lecture “statut” uniquement (affichage)
   const isInGame = useGameUiStore((s) => s.isInGame);
   const currentRoomId = useGameUiStore((s) => s.currentRoomId);
 
+  // anti-double navigation locale
   const lastHandledAtRef = useRef(0);
-
-  // --- helpers fenêtre temporelle ---
-  const getGuardUntil = () => {
-    try {
-      return Number(localStorage.getItem("ignoreRoomEventsUntil") || "0");
-    } catch {
-      return 0;
-    }
-  };
-  const isTimeGuardActive = () => Date.now() < getGuardUntil();
-
-  // ❌ Ancienne erreur : on utilisait hasQuit ici -> bloquait aussi les clics manuels.
-  // Désormais, pour désactiver les boutons, on ne regarde QUE la fenêtre de temps.
-  const shouldDisableActions = () => isTimeGuardActive();
-
-  // Pour les events auto, on garde la logique stricte.
-  const shouldIgnoreIncomingEvents = () => hasQuit || isTimeGuardActive();
-
-  // Purge défensive en arrivant au lobby: si une session traîne, on la nettoie.
-  useEffect(() => {
-    const { currentRoomId: rid, isInGame: ingame } = useGameUiStore.getState();
-    if (rid || ingame) {
-      useGameUiStore.getState().leaveGame();
-      // petite fenêtre très courte pour absorber d'éventuels events tardifs
-      try {
-        localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 800));
-      } catch {}
-    }
-  }, []);
-
-  // Annule tous les garde-fous avant une action MANUELLE
-  const clearGuardsForManualAction = () => {
-    // 1) hasQuit=false pour que l'event de retour ne soit pas ignoré
-    useGameUiStore.setState({ hasQuit: false });
-    // 2) on coupe la fenêtre temps
-    try {
-      localStorage.setItem("ignoreRoomEventsUntil", "0");
-    } catch {}
-  };
 
   useEffect(() => {
     if (!socket) return;
 
     const handleRoomEvent = ({ roomId }) => {
-      // On ignore seulement les EVENTS AUTO si on vient de quitter
-      if (shouldIgnoreIncomingEvents()) {
-        if (import.meta?.env?.MODE !== "production") {
-          // eslint-disable-next-line no-console
-          console.debug("[Lobby] Ignored room event (guard active).", {
-            hasQuit,
-            ignoreUntil: localStorage.getItem("ignoreRoomEventsUntil"),
-            roomId,
-          });
-        }
-        return;
-      }
-
-      // anti-doublon navigation
       const now = Date.now();
-      if (now - lastHandledAtRef.current < 400) return;
+      if (now - lastHandledAtRef.current < 300) return; // petit debounce
       lastHandledAtRef.current = now;
 
       if (roomId) navigate(`/play/${roomId}`);
@@ -94,21 +39,15 @@ export default function Lobby() {
 
     on("room_created", handleRoomEvent);
     on("room_joined", handleRoomEvent);
+
     return () => {
       off("room_created", handleRoomEvent);
       off("room_joined", handleRoomEvent);
     };
-  }, [socket, on, off, navigate, hasQuit]);
+  }, [socket, on, off, navigate]);
 
   const handleCreate = () => {
     setError("");
-    // On laisse cliquer même si hasQuit===true ; on nettoie les garde-fous.
-    clearGuardsForManualAction();
-
-    if (shouldDisableActions()) {
-      setError("Patiente un instant…");
-      return;
-    }
     emit("create_room");
   };
 
@@ -117,13 +56,6 @@ export default function Lobby() {
     const roomId = inputRoom.trim();
     if (!roomId) {
       setError("Saisis un ID de room.");
-      return;
-    }
-
-    clearGuardsForManualAction();
-
-    if (shouldDisableActions()) {
-      setError("Patiente un instant…");
       return;
     }
     emit("join_room", { roomId, username: user.username });
@@ -136,19 +68,11 @@ export default function Lobby() {
           Salon de jeu
         </h1>
 
-        {/* Message doux uniquement si la fenêtre temps est active */}
-        {isTimeGuardActive() && (
-          <p className="text-stone-600 dark:text-stone-300 text-sm mb-4 text-center">
-            Retour au calme… tu peux créer/rejoindre dans une seconde.
-          </p>
-        )}
-
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
         <button
           onClick={handleCreate}
-          className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
-          disabled={shouldDisableActions()}
+          className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
         >
           Créer une partie
         </button>
@@ -163,8 +87,7 @@ export default function Lobby() {
           />
           <button
             onClick={handleJoin}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
-            disabled={shouldDisableActions()}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition"
           >
             Rejoindre
           </button>
@@ -172,11 +95,9 @@ export default function Lobby() {
 
         {/* Petit statut utile en debug */}
         <div className="mt-6 text-xs text-stone-500 dark:text-stone-400 text-center">
-          {isInGame && currentRoomId ? (
-            <>Session active: <span className="font-mono">{currentRoomId}</span></>
-          ) : (
-            "Aucune session active"
-          )}
+          {isInGame && currentRoomId
+            ? <>Session active: <span className="font-mono">{currentRoomId}</span></>
+            : "Aucune session active"}
         </div>
       </div>
     </div>
