@@ -18,12 +18,15 @@ export default function NavBar() {
   const [copied, setCopied] = useState(false);
 
   // Stores
-  const roomId      = useGameUiStore((s) => s.currentRoomId);
-  const isInGame    = useGameUiStore((s) => s.isInGame);
-  const color       = useGameUiStore((s) => s.myColor);
-  const turnColor   = useGameUiStore((s) => s.turnColor);
-  const myTurn      = useGameUiStore((s) => s.myTurn);
-  const players     = useGameUiStore((s) => s.players) || [];
+  const roomId       = useGameUiStore((s) => s.currentRoomId);
+  const isInGame     = useGameUiStore((s) => s.isInGame);
+  const color        = useGameUiStore((s) => s.myColor);
+  const turnColor    = useGameUiStore((s) => s.turnColor);
+  const myTurn       = useGameUiStore((s) => s.myTurn);
+  const players      = useGameUiStore((s) => s.players) || [];
+  // 🔔 On s'abonne au nonce juste pour forcer un rerender quand leaveGame() est appelé
+  const _sessionTick = useGameUiStore((s) => s.sessionNonce);
+
   const totalUnread = useMessageStore((s) => s.totalUnread());
 
   if (!user) return null;
@@ -82,7 +85,7 @@ export default function NavBar() {
       </span>
     ) : null;
 
-  // ⛔️ IMPORTANT : on n’affiche la bannière session que si la partie est active
+  // Bannière session uniquement si la partie est active ET une room connue
   const showSessionBanner = Boolean(isInGame && roomId);
 
   return (

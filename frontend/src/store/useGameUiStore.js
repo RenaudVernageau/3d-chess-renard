@@ -17,6 +17,9 @@ export const useGameUiStore = create()(
       // item: { piece:'p|n|b|r|q', by:'w|b', at:number, from?:string, to?:string }
       captures: { w: [], b: [] },
 
+      // --- (NEW) Nonce pour forcer un rerender des UIs liées à la session ---
+      sessionNonce: 0,
+
       // --- Setters sûrs ---
       /**
        * Setter centralisé pour la room.
@@ -73,6 +76,7 @@ export const useGameUiStore = create()(
        * Quitter la partie explicitement
        * - Vide l'état mémoire
        * - Purge les traces persistées susceptibles d'afficher la session (roomId, flags temporaires)
+       * - (NEW) Bump sessionNonce pour forcer le rerender des composants abonnés (NavBar)
        */
       leaveGame: () => {
         // Purge clés potentiellement utilisées ailleurs pour "reprendre"
@@ -89,12 +93,15 @@ export const useGameUiStore = create()(
           sessionStorage.removeItem("lastRoomId");
         } catch (_) {}
 
+        const nextNonce = Date.now(); // suffisamment unique pour invalider les sélecteurs
+
         set({
           currentRoomId: null,
           myColor: undefined,
           players: [],
           isInGame: false,
           captures: { w: [], b: [] },
+          sessionNonce: nextNonce,
         });
       },
 
@@ -135,6 +142,7 @@ export const useGameUiStore = create()(
         players: s.players,
         isInGame: s.isInGame,
         captures: s.captures, // ✅ on persiste désormais les captures pour survivre à un refresh
+        // NB: on NE persiste PAS sessionNonce (il ne sert qu’à invalider en mémoire)
       }),
       // Migration des anciennes versions (ex: v1 sans captures)
       migrate: (persistedState, version) => {
