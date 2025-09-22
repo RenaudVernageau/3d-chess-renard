@@ -39,7 +39,7 @@ export default function Experience() {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
     return () => {
-      setGameUi({ isInGame: false, players: [], myColor: undefined });
+      // setGameUi({ isInGame: false, players: [], myColor: undefined });
       lastAppliedMoveCount.current = 0;
     };
   }, [roomId, setGameUi]);
