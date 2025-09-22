@@ -10,7 +10,7 @@ import { useGameUiStore } from "../store/useGameUiStore";
  * - On ignore les events room_created / room_joined tant que:
  *    • un flag temporel localStorage "ignoreRoomEventsUntil" n'est pas expiré
  *    • OU le store indique hasQuit === true
- * - La fenêtre est paramétrée par Experience.handleQuitGame (1.5s par défaut)
+ * - La fenêtre est paramétrée par Experience.handleQuitGame (3s par défaut)
  */
 export default function Lobby() {
   const { user } = useAuth();
@@ -28,6 +28,27 @@ export default function Lobby() {
   // petit buffer local pour "debouncer" la re-navigation si jamais
   const lastHandledAtRef = useRef(0);
 
+  // ⛑️ Purge défensive à l'arrivée au lobby (empêche toute "session fantôme")
+  useEffect(() => {
+    const { currentRoomId: rid, isInGame: ingame } = useGameUiStore.getState();
+    if (rid || ingame) {
+      // On vide l'état session local et on bloque l'auto-join quelques secondes
+      useGameUiStore.getState().leaveGame();
+      try {
+        localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000));
+      } catch {}
+    }
+    // Même si rien à purger, on place une petite fenêtre très courte pour absorber des events tardifs éventuels
+    else {
+      try {
+        const until = Number(localStorage.getItem("ignoreRoomEventsUntil") || "0");
+        if (Date.now() >= until) {
+          localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 800));
+        }
+      } catch {}
+    }
+  }, []);
+
   const shouldIgnoreRoomEvents = () => {
     try {
       const until = Number(localStorage.getItem("ignoreRoomEventsUntil") || "0");
@@ -44,13 +65,13 @@ export default function Lobby() {
     const handleRoomEvent = ({ roomId }) => {
       // Anti-race: on ignore si on vient juste de quitter
       if (shouldIgnoreRoomEvents()) {
-        // Optionnel: message debug discret en dev
         if (import.meta?.env?.MODE !== "production") {
           // eslint-disable-next-line no-console
-          console.debug(
-            "[Lobby] Ignored room event because user just quit.",
-            { hasQuit, ignoreUntil: localStorage.getItem("ignoreRoomEventsUntil"), roomId }
-          );
+          console.debug("[Lobby] Ignored room event (recent quit/guard).", {
+            hasQuit,
+            ignoreUntil: localStorage.getItem("ignoreRoomEventsUntil"),
+            roomId,
+          });
         }
         return;
       }
@@ -140,9 +161,11 @@ export default function Lobby() {
 
         {/* Petit statut utile en debug */}
         <div className="mt-6 text-xs text-stone-500 dark:text-stone-400 text-center">
-          {isInGame && currentRoomId
-            ? <>Session active: <span className="font-mono">{currentRoomId}</span></>
-            : "Aucune session active"}
+          {isInGame && currentRoomId ? (
+            <>Session active: <span className="font-mono">{currentRoomId}</span></>
+          ) : (
+            "Aucune session active"
+          )}
         </div>
       </div>
     </div>

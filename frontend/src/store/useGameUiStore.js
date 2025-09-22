@@ -7,14 +7,14 @@ const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9 }; // (le roi ne compte pas)
 export const useGameUiStore = create()(
   persist(
     (set, get) => ({
-      // --- State de partie ---
+      // --- State de partie (VOLATILE: non persisté) ---
       currentRoomId: null,
       myColor: undefined,     // "white" | "black"
       players: [],            // ["alice","bob"]
       isInGame: false,
-      hasQuit: false,         // ← NEW: indicateur qu’on a explicitement quitté
+      hasQuit: false,         // indicateur qu’on a explicitement quitté
 
-      // Captures locales (par convention: 'w' = blancs, 'b' = noirs → le côté QUI CAPTURE)
+      // Captures locales (VOLATILE aussi)
       // item: { piece:'p|n|b|r|q', by:'w|b', at:number, from?:string, to?:string }
       captures: { w: [], b: [] },
 
@@ -22,11 +22,6 @@ export const useGameUiStore = create()(
       sessionNonce: 0,
 
       // --- Setters sûrs ---
-      /**
-       * Setter centralisé pour la room.
-       * - Si la room change et qu'on ne demande pas explicitement de conserver, on reset les captures.
-       * - En (re)entrant dans une room, on remet hasQuit à false.
-       */
       setCurrentRoomId: (nextRoomId, opts = { keepCaptures: false }) => {
         const prev = get().currentRoomId;
         if (prev === nextRoomId) return;
@@ -41,11 +36,6 @@ export const useGameUiStore = create()(
       setPlayers: (players) => set({ players: Array.isArray(players) ? players : [] }),
       setMyColor: (color) => set({ myColor: color }),
 
-      /**
-       * setGameUi: patch utilisateur.
-       * - Si currentRoomId change ici, on reset les captures (sauf opts.keepCaptures).
-       * - Si on fournit un currentRoomId truthy, on remet hasQuit à false.
-       */
       setGameUi: (partial, opts = { keepCaptures: false }) => {
         const prevRoom = get().currentRoomId;
         const hasRoomChange =
@@ -61,7 +51,6 @@ export const useGameUiStore = create()(
             hasQuit: !!partial.currentRoomId ? false : get().hasQuit,
           });
         } else {
-          // Si on passe un currentRoomId truthy dans partial, on annule hasQuit
           const updates = { ...partial };
           if (partial && partial.currentRoomId) updates.hasQuit = false;
           set({ ...get(), ...updates });
@@ -82,13 +71,14 @@ export const useGameUiStore = create()(
       /**
        * Quitter la partie explicitement
        * - Vide l'état mémoire
-       * - Purge les traces persistées susceptibles d'afficher la session (roomId, flags temporaires)
+       * - Purge les traces persistées susceptibles d'afficher la session (clé custom éventuelle)
        * - Bump sessionNonce pour forcer le rerender des composants abonnés (NavBar)
-       * - Marque hasQuit = true pour bloquer tout auto-rejoin
+       * - Marque hasQuit = true pour bloquer tout auto-rejoin côté client
        */
       leaveGame: () => {
         try {
           localStorage.removeItem("ignoreRoomEventsUntil");
+          // Nettoyage défensif de vieilles clés custom si tu en as eu
           localStorage.removeItem("currentRoomId");
           localStorage.removeItem("lastRoomId");
         } catch (_) {}
@@ -127,7 +117,6 @@ export const useGameUiStore = create()(
         set({ captures: next });
       },
 
-      // Différentiel de matériel: (points BLANCS) - (points NOIRS)
       materialDiff: () => {
         const { captures } = get();
         const sum = (side) =>
@@ -136,24 +125,21 @@ export const useGameUiStore = create()(
       },
     }),
     {
-      name: "game-ui-v2",
+      name: "game-ui-v3", // ⬅️ bump version
       storage: createJSONStorage(() => sessionStorage),
-      version: 2,
-      partialize: (s) => ({
-        currentRoomId: s.currentRoomId,
-        myColor: s.myColor,
-        players: s.players,
-        isInGame: s.isInGame,
-        captures: s.captures,
-        // on NE persiste PAS hasQuit ni sessionNonce
-      }),
+
+      /**
+       * ❗️On NE persiste plus rien lié à la session de jeu.
+       * Laisse vide pour empêcher de restaurer currentRoomId/isInGame/etc.
+       */
+      partialize: (_s) => ({}),
+
+      version: 3,
       migrate: (persistedState, version) => {
+        // Purge toute vieille forme persistée (v1/v2) qui contenait la session
         if (!persistedState) return persistedState;
-        if (version < 2) {
-          return {
-            ...persistedState,
-            captures: persistedState.captures || { w: [], b: [] },
-          };
+        if (version < 3) {
+          return {}; // on jette tout l'ancien snapshot
         }
         return persistedState;
       },
