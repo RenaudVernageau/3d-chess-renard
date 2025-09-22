@@ -13,6 +13,22 @@ function parseJwt(token) {
   }
 }
 
+// --- Guard partagé: regarde aussi la fenêtre d'ignorance lobby ---
+function shouldSuppressAutoJoin() {
+  const state = useGameUiStore.getState();
+  const { currentRoomId: roomId, isInGame, hasQuit } = state;
+
+  if (hasQuit || !isInGame || !roomId) return true;
+
+  // ⛔️ Nouveau: si le lobby a posé une fenêtre d'ignorance, on NE rejoin PAS
+  try {
+    const until = Number(localStorage.getItem("ignoreRoomEventsUntil") || "0");
+    if (Date.now() < until) return true;
+  } catch (_) {}
+
+  return false;
+}
+
 export default function useWebSocket(token) {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
@@ -32,11 +48,13 @@ export default function useWebSocket(token) {
 
     socketRef.current = socket;
 
-    // ⛔️ Auto-join uniquement si l'utilisateur est "en partie" ET n'a pas explicitement quitté
+    // ------ Auto-join protégé ------
     const rejoinIfNeeded = () => {
+      if (shouldSuppressAutoJoin()) return;
+
       const state = useGameUiStore.getState();
-      const { currentRoomId: roomId, isInGame, hasQuit } = state;
-      if (hasQuit || !isInGame || !roomId) return;
+      const { currentRoomId: roomId } = state;
+      if (!roomId) return;
 
       const username =
         localStorage.getItem("username") ||
@@ -50,12 +68,12 @@ export default function useWebSocket(token) {
     // ===== Connexion
     socket.on("connect", () => {
       setConnected(true);
-      rejoinIfNeeded();
+      rejoinIfNeeded(); // ← respectera hasQuit + fenêtre d’ignorance
     });
 
     socket.on("reconnect", () => {
       setConnected(true);
-      rejoinIfNeeded();
+      rejoinIfNeeded(); // idem
     });
 
     socket.on("disconnect", () => setConnected(false));
@@ -115,6 +133,7 @@ export default function useWebSocket(token) {
       socket.off("piece:capture", applyCapture);
       socket.off("game:snapshot", hydrateSnapshot);
       socket.off("state_sync", hydrateSnapshot);
+
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;

@@ -39,7 +39,6 @@ export default function Experience() {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
     return () => {
-      // On ne met PAS isInGame=false ici (sinon la bannière disparaît en changeant de page)
       lastAppliedMoveCount.current = 0;
     };
   }, [roomId, setGameUi]);
@@ -288,13 +287,13 @@ export default function Experience() {
     setQuitting(true);
 
     try {
-      // invalide toute réactivité lobby pendant 1.5s (évite yo-yo)
-      localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 1500));
+      // ↑↑ Fenêtre portée à 3s pour absorber latences/events tardifs
+      localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000));
 
       // purge IMMEDIATE de l'état session (coupe NavBar/Resume/etc.)
-      leaveGame(); // ⛔️ Ne pas réinitialiser hasQuit ici ou juste après
+      leaveGame(); // hasQuit:true + isInGame:false + currentRoomId:null
 
-      // notifications serveur (sans risque de rejoin côté client)
+      // notifications serveur
       if (roomId) {
         emit("room_quit", { roomId });
         emit("leave_room", { roomId });
@@ -303,7 +302,7 @@ export default function Experience() {
 
     clearTimeout(rematchTimerRef.current);
 
-    // Redirection — on laisse hasQuit=true jusqu'à la prochaine vraie entrée en room
+    // Redirection — hasQuit reste true jusqu'à nouvelle vraie room
     navigate("/lobby", { replace: true });
   };
 
@@ -376,8 +375,6 @@ export default function Experience() {
             ? "Nulle par triple répétition"
             : gameOver.reason === "fifty_move_rule"
             ? "Nulle (règle des 50 coups)"
-            : gameOver.reason === "insufficient_material"
-            ? "Nulle (matériel insuffisant)"
             : "Match nul"}
         </h3>
 
