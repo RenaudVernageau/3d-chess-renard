@@ -1,53 +1,100 @@
 // src/components/Lobby.jsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import useWebSocket from '../hooks/useWebSocket';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import useWebSocket from "../hooks/useWebSocket";
+import { useAuth } from "../hooks/useAuth";
+import { useGameUiStore } from "../store/useGameUiStore";
 
+/**
+ * Garde client pour éviter le "yo-yo" après Quit :
+ * - On ignore les events room_created / room_joined tant que:
+ *    • un flag temporel localStorage "ignoreRoomEventsUntil" n'est pas expiré
+ *    • OU le store indique hasQuit === true
+ * - La fenêtre est paramétrée par Experience.handleQuitGame (1.5s par défaut)
+ */
 export default function Lobby() {
   const { user } = useAuth();
   const { socket, on, off, emit } = useWebSocket(user?.token);
   const navigate = useNavigate();
-  const [inputRoom, setInputRoom] = useState('');
-  const [error, setError] = useState('');
+
+  const [inputRoom, setInputRoom] = useState("");
+  const [error, setError] = useState("");
+
+  // read-only flags depuis le store
+  const hasQuit = useGameUiStore((s) => s.hasQuit);
+  const isInGame = useGameUiStore((s) => s.isInGame);
+  const currentRoomId = useGameUiStore((s) => s.currentRoomId);
+
+  // petit buffer local pour "debouncer" la re-navigation si jamais
+  const lastHandledAtRef = useRef(0);
+
+  const shouldIgnoreRoomEvents = () => {
+    try {
+      const until = Number(localStorage.getItem("ignoreRoomEventsUntil") || "0");
+      const timeGuard = Date.now() < until;
+      return hasQuit || timeGuard;
+    } catch {
+      return hasQuit;
+    }
+  };
 
   useEffect(() => {
     if (!socket) return;
 
     const handleRoomEvent = ({ roomId }) => {
-      // ⛔️ Fenêtre d'ignorance juste après un quit (évite le "retour auto")
-      const ignoreUntil = Number(localStorage.getItem("ignoreRoomEventsUntil") || 0);
-      if (Date.now() < ignoreUntil) return;
-      // On nettoie le flag une fois passé
-      if (ignoreUntil) localStorage.removeItem("ignoreRoomEventsUntil");
+      // Anti-race: on ignore si on vient juste de quitter
+      if (shouldIgnoreRoomEvents()) {
+        // Optionnel: message debug discret en dev
+        if (import.meta?.env?.MODE !== "production") {
+          // eslint-disable-next-line no-console
+          console.debug(
+            "[Lobby] Ignored room event because user just quit.",
+            { hasQuit, ignoreUntil: localStorage.getItem("ignoreRoomEventsUntil"), roomId }
+          );
+        }
+        return;
+      }
+
+      // Évite double navigation si deux events consécutifs arrivent
+      const now = Date.now();
+      if (now - lastHandledAtRef.current < 400) return;
+      lastHandledAtRef.current = now;
 
       if (roomId) {
         navigate(`/play/${roomId}`);
       }
     };
 
-    on('room_created', handleRoomEvent);
-    on('room_joined', handleRoomEvent);
+    on("room_created", handleRoomEvent);
+    on("room_joined", handleRoomEvent);
 
     return () => {
-      off('room_created', handleRoomEvent);
-      off('room_joined', handleRoomEvent);
+      off("room_created", handleRoomEvent);
+      off("room_joined", handleRoomEvent);
     };
-  }, [socket, on, off, navigate]);
+  }, [socket, on, off, navigate, hasQuit]);
 
   const handleCreate = () => {
-    setError('');
-    emit('create_room');
+    setError("");
+    if (shouldIgnoreRoomEvents()) {
+      setError("Patiente un instant…");
+      return;
+    }
+    emit("create_room");
   };
 
   const handleJoin = () => {
-    setError('');
+    setError("");
     const roomId = inputRoom.trim();
     if (!roomId) {
-      setError('Saisis un ID de room.');
+      setError("Saisis un ID de room.");
       return;
     }
-    emit('join_room', { roomId, username: user.username });
+    if (shouldIgnoreRoomEvents()) {
+      setError("Patiente un instant…");
+      return;
+    }
+    emit("join_room", { roomId, username: user.username });
   };
 
   return (
@@ -57,11 +104,19 @@ export default function Lobby() {
           Salon de jeu
         </h1>
 
+        {/* Info douce si on sort tout juste d'une partie */}
+        {shouldIgnoreRoomEvents() && (
+          <p className="text-stone-600 dark:text-stone-300 text-sm mb-4 text-center">
+            Retour au calme… tu peux créer/rejoindre dans une seconde.
+          </p>
+        )}
+
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
 
         <button
           onClick={handleCreate}
-          className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+          className="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
+          disabled={shouldIgnoreRoomEvents()}
         >
           Créer une partie
         </button>
@@ -76,10 +131,18 @@ export default function Lobby() {
           />
           <button
             onClick={handleJoin}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
+            disabled={shouldIgnoreRoomEvents()}
           >
             Rejoindre
           </button>
+        </div>
+
+        {/* Petit statut utile en debug */}
+        <div className="mt-6 text-xs text-stone-500 dark:text-stone-400 text-center">
+          {isInGame && currentRoomId
+            ? <>Session active: <span className="font-mono">{currentRoomId}</span></>
+            : "Aucune session active"}
         </div>
       </div>
     </div>
