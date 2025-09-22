@@ -1,4 +1,4 @@
-//server/services/websocket.js
+// server/services/websocket.js
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../config");
 const { rooms } = require("../models/Game");
@@ -132,6 +132,10 @@ function initWebsocket(server) {
         const color = room.assignments[userId];
         if (!room.players.some((p) => p.id === userId)) {
           room.players.push({ id: userId, username: uname || username, color });
+        } else {
+          // refresh username/color if needed
+          const idx = room.players.findIndex((p) => p.id === userId);
+          if (idx >= 0) room.players[idx] = { id: userId, username: uname || username, color };
         }
       }
 
@@ -202,9 +206,12 @@ function initWebsocket(server) {
       socket.emit("state_sync", room.state || { fen: null, moves: [] });
     });
 
-    socket.on("leave_room", ({ roomId }) => {
+    socket.on("leave_room", ({ roomId }, ack) => {
       const room = rooms[roomId];
-      if (!room) return;
+      if (!room) {
+        ack?.({ ok: false, error: "room_not_found" });
+        return;
+      }
       removePlayerFromRoom(room, userId);
       socket.leave(roomId);
       socket.joinedGameRooms.delete(roomId);
@@ -213,11 +220,15 @@ function initWebsocket(server) {
 
       broadcastPlayers(roomId);
       cleanupRoomIfEmpty(roomId);
+      ack?.({ ok: true });
     });
 
-    socket.on("room_quit", ({ roomId }) => {
+    socket.on("room_quit", ({ roomId }, ack) => {
       const room = rooms[roomId];
-      if (!room) return;
+      if (!room) {
+        ack?.({ ok: false, error: "room_not_found" });
+        return;
+      }
 
       console.log(`[WS] ${username} quits game room ${roomId}`);
 
@@ -229,7 +240,54 @@ function initWebsocket(server) {
 
       broadcastPlayers(roomId);
       cleanupRoomIfEmpty(roomId);
+      ack?.({ ok: true });
     });
+
+    // ======= NOUVEAU: Abandon (resign) pour terminer la partie proprement =======
+    socket.on("game:resign", ({ roomId } = {}, ack) => {
+      try {
+        if (!roomId) {
+          ack?.({ ok: false, error: "missing_room_id" });
+          return;
+        }
+        const room = rooms[roomId];
+        if (!room) {
+          ack?.({ ok: false, error: "room_not_found" });
+          return;
+        }
+
+        const loserId = socket.user?.id;
+        // gagnant = premier autre joueur de la room si présent
+        const others = (room.players || []).filter((p) => p.id !== loserId);
+        const winnerId = others[0]?.id || null;
+
+        if (!room.state) room.state = { fen: null, moves: [] };
+
+        let winnerColor = null;
+        if (winnerId) {
+          const assign = room.assignments[winnerId];
+          winnerColor = assign === "white" ? "white" : assign === "black" ? "black" : null;
+        }
+
+        room.state.gameOver = {
+          reason: "resign",
+          winner: winnerColor, // "white" | "black" | null
+          at: Date.now(),
+        };
+
+        // Broadcast fin de partie au salon
+        io.to(roomId).emit("game_over", {
+          reason: "resign",
+          winner: winnerColor,
+        });
+
+        ack?.({ ok: true });
+      } catch (e) {
+        console.error("[WS] game:resign error:", e);
+        ack?.({ ok: false, error: "server_error" });
+      }
+    });
+    // ===== FIN RESIGN =====
 
     // Réception d'un coup
     socket.on("move_piece", ({ roomId, move, color, nextFen }) => {

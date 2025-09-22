@@ -281,28 +281,46 @@ export default function Experience() {
     );
   }
 
-  // Quit propre — on efface l'état AVANT tout et on invalide la session UI
-  const handleQuitGame = () => {
+  // Quit = "resign & leave & purge & lobby" (robuste : ack + timeout)
+  const handleQuitGame = async () => {
     if (quitting) return;
     setQuitting(true);
 
+    // Fenêtre anti-yo-yo pour le Lobby / rejoin automatique
     try {
-      // ↑↑ Fenêtre portée à 3s pour absorber latences/events tardifs
       localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000));
+    } catch {}
 
-      // purge IMMEDIATE de l'état session (coupe NavBar/Resume/etc.)
-      leaveGame(); // hasQuit:true + isInGame:false + currentRoomId:null
+    // 1) Abandon côté serveur (ACK avec timeout court)
+    await new Promise((resolve) => {
+      let settled = false;
+      const t = setTimeout(() => {
+        if (!settled) { settled = true; resolve({ ok: false, timeout: true }); }
+      }, 1200);
+      try {
+        emit("game:resign", { roomId }, (resp) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(t);
+          resolve(resp || { ok: true });
+        });
+      } catch {
+        if (!settled) { settled = true; clearTimeout(t); resolve({ ok: false }); }
+      }
+    });
 
-      // notifications serveur
+    // 2) Sortie de room - best effort
+    try {
       if (roomId) {
         emit("room_quit", { roomId });
         emit("leave_room", { roomId });
       }
-    } catch (_) {}
+    } catch {}
 
-    clearTimeout(rematchTimerRef.current);
+    // 3) Purge locale (empêche tout auto-resume)
+    leaveGame();
 
-    // Redirection — hasQuit reste true jusqu'à nouvelle vraie room
+    // 4) Navigation
     navigate("/lobby", { replace: true });
   };
 
