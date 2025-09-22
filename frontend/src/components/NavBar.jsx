@@ -59,6 +59,26 @@ export default function NavBar() {
     navigate(`/play/${roomId}`);
   };
 
+  // --- NOUVEAU: clic sur la marque "Immersive Chess" ---
+  // Si on est en partie, on fait un "soft refresh": lobby -> retour immédiat play/:roomId
+  // Ça réinitialise Experience sans quitter la session ni toucher au store.
+  const handleBrandClick = (e) => {
+    try {
+      if (isInGame && roomId) {
+        e.preventDefault(); // on override le Link
+        // petit flash lobby, puis retour jeu
+        navigate("/lobby", { replace: true });
+        // délai très court pour laisser React monter/démonter proprement
+        setTimeout(() => {
+          navigate(`/play/${roomId}`, { replace: true });
+        }, 10);
+        return;
+      }
+    } catch (_) {}
+    // Pas en partie -> comportement normal: aller au lobby
+    // (on laisse Link gérer, donc pas de preventDefault)
+  };
+
   // Helpers affichage tour
   const Dot = ({ c }) => (
     <span aria-hidden className="text-base leading-none">
@@ -94,7 +114,13 @@ export default function NavBar() {
       <header className="fixed top-0 left-0 right-0 z-40 border-b border-stone-800 bg-stone-900/95 backdrop-blur supports-[backdrop-filter]:bg-stone-900/75">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex h-14 items-center justify-between">
-            <Link to="/lobby" className="flex items-center gap-2 font-semibold text-white">
+            {/* Marque — intercept clic en partie */}
+            <Link
+              to="/lobby"
+              onClick={handleBrandClick}
+              className="flex items-center gap-2 font-semibold text-white"
+              title="Immersive Chess"
+            >
               <span className="text-xl">Immersive Chess ♔</span>
             </Link>
 
