@@ -8,10 +8,10 @@ import { useGameUiStore } from "../store/useGameUiStore";
 /**
  * Règle :
  * - On ignore les EVENTS AUTO (room_created/room_joined) si hasQuit === true OU si la fenêtre temps est active.
- * - On n'empêche PAS l'utilisateur de cliquer si hasQuit === true (c'était le bug).
- *   Les boutons ne sont désactivés QUE pendant la petite fenêtre temporelle.
- * - Au clic manuel (Créer/Rejoindre), on enlève les garde-fous (hasQuit=false + on annule la fenêtre)
+ * - Les boutons ne sont désactivés QUE par la fenêtre temporelle (pas par hasQuit).
+ * - Au clic manuel (Créer/Rejoindre), on enlève les garde-fous (hasQuit=false + fenêtre off)
  *   pour que l'event de retour soit bien pris en compte.
+ * - Naviguer vers le Lobby n'exclut PAS la session de jeu (pas de purge auto ici).
  */
 export default function Lobby() {
   const { user } = useAuth();
@@ -38,30 +38,15 @@ export default function Lobby() {
   };
   const isTimeGuardActive = () => Date.now() < getGuardUntil();
 
-  // ❌ Ancienne erreur : on utilisait hasQuit ici -> bloquait aussi les clics manuels.
-  // Désormais, pour désactiver les boutons, on ne regarde QUE la fenêtre de temps.
+  // Désactiver les actions seulement pendant la fenêtre
   const shouldDisableActions = () => isTimeGuardActive();
 
   // Pour les events auto, on garde la logique stricte.
   const shouldIgnoreIncomingEvents = () => hasQuit || isTimeGuardActive();
 
-  // Purge défensive en arrivant au lobby: si une session traîne, on la nettoie.
-  useEffect(() => {
-    const { currentRoomId: rid, isInGame: ingame } = useGameUiStore.getState();
-    if (rid || ingame) {
-      useGameUiStore.getState().leaveGame();
-      // petite fenêtre très courte pour absorber d'éventuels events tardifs
-      try {
-        localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 800));
-      } catch {}
-    }
-  }, []);
-
   // Annule tous les garde-fous avant une action MANUELLE
   const clearGuardsForManualAction = () => {
-    // 1) hasQuit=false pour que l'event de retour ne soit pas ignoré
     useGameUiStore.setState({ hasQuit: false });
-    // 2) on coupe la fenêtre temps
     try {
       localStorage.setItem("ignoreRoomEventsUntil", "0");
     } catch {}
@@ -71,7 +56,7 @@ export default function Lobby() {
     if (!socket) return;
 
     const handleRoomEvent = ({ roomId }) => {
-      // On ignore seulement les EVENTS AUTO si on vient de quitter
+      // On ignore seulement les EVENTS AUTO si on vient de quitter ou fenêtre active
       if (shouldIgnoreIncomingEvents()) {
         if (import.meta?.env?.MODE !== "production") {
           // eslint-disable-next-line no-console
@@ -102,9 +87,7 @@ export default function Lobby() {
 
   const handleCreate = () => {
     setError("");
-    // On laisse cliquer même si hasQuit===true ; on nettoie les garde-fous.
     clearGuardsForManualAction();
-
     if (shouldDisableActions()) {
       setError("Patiente un instant…");
       return;
@@ -119,9 +102,7 @@ export default function Lobby() {
       setError("Saisis un ID de room.");
       return;
     }
-
     clearGuardsForManualAction();
-
     if (shouldDisableActions()) {
       setError("Patiente un instant…");
       return;
