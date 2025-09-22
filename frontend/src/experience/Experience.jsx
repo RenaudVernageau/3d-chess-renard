@@ -22,13 +22,9 @@ export default function Experience() {
   const [gameOver, setGameOver] = useState(null);
   const boardRef = useRef(null);
 
-  const setGameUi   = useGameUiStore((s) => s.setGameUi);
-  const leaveGame   = useGameUiStore((s) => s.leaveGame);
+  const setGameUi = useGameUiStore((s) => s.setGameUi);
+  const leaveGame = useGameUiStore((s) => s.leaveGame);
   const [quitting, setQuitting] = useState(false);
-
-  const [rematchIncoming, setRematchIncoming] = useState(null);
-  const [rematchPending, setRematchPending] = useState(false);
-  const rematchTimerRef = useRef(null);
 
   const listenersAttached = useRef(false);
   const joinedOnceForRoom = useRef(false);
@@ -172,32 +168,6 @@ export default function Experience() {
       setGameOver(payload || { reason: "unknown", winner: null });
     };
 
-    // ===== Rematch =====
-    const handleRematchIncoming = (p) => {
-      if (p?.toUserId !== user?.id && String(p?.toUserId) !== String(user?.id)) return;
-      setRematchIncoming(p);
-      clearTimeout(rematchTimerRef.current);
-      rematchTimerRef.current = setTimeout(() => setRematchIncoming(null), 30000);
-    };
-
-    const handleRematchAccepted = ({ newRoomId }) => {
-      setRematchPending(false);
-      setRematchIncoming(null);
-      if (newRoomId) {
-        navigate(`/play/${newRoomId}?rematch=1`, { replace: true });
-      }
-    };
-
-    const handleRematchDeclined = () => {
-      setRematchPending(false);
-      setRematchIncoming(null);
-    };
-
-    const handleRematchCancelled = () => {
-      setRematchPending(false);
-      setRematchIncoming(null);
-    };
-
     on("room_created", handleRoomCreated);
     on("room_joined", handleRoomJoined);
     on("room_player_update", handlePlayerUpdate);
@@ -208,11 +178,6 @@ export default function Experience() {
     on("game:snapshot", handleGameSnapshot);
     on("game_over", handleGameOverServer);
     on("error", handleServerError);
-
-    on("rematch:incoming", handleRematchIncoming);
-    on("rematch:accepted", handleRematchAccepted);
-    on("rematch:declined", handleRematchDeclined);
-    on("rematch:cancelled", handleRematchCancelled);
 
     listenersAttached.current = true;
 
@@ -239,16 +204,10 @@ export default function Experience() {
       off("game_over", handleGameOverServer);
       off("error", handleServerError);
 
-      off("rematch:incoming", handleRematchIncoming);
-      off("rematch:accepted", handleRematchAccepted);
-      off("rematch:declined", handleRematchDeclined);
-      off("rematch:cancelled", handleRematchCancelled);
-
       listenersAttached.current = false;
       joinedOnceForRoom.current = false;
-      clearTimeout(rematchTimerRef.current);
     };
-  }, [roomId, connected, socket, emit, on, off, user?.username, user?.id, setGameUi, color, navigate]);
+  }, [roomId, connected, socket, emit, on, off, user?.username, setGameUi, color, navigate]);
 
   useEffect(() => {
     if (color) setGameUi({ myColor: color });
@@ -281,86 +240,31 @@ export default function Experience() {
     );
   }
 
-  // Quit = "resign & leave & purge & lobby" (robuste : ack + timeout)
+  // Quit = abandon + leave + purge + retour lobby (fenêtre anti-yo-yo courte)
   const handleQuitGame = async () => {
     if (quitting) return;
     setQuitting(true);
 
-    // Fenêtre anti-yo-yo pour le Lobby / rejoin automatique
     try {
-      localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000));
-    } catch {}
+      try { localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000)); } catch {}
+      // Abandon & sortie best-effort
+      try { emit("game:resign", { roomId }, () => {}); } catch {}
+      try { emit("room_quit", { roomId }, () => {}); } catch {}
+      try { emit("leave_room", { roomId }, () => {}); } catch {}
 
-    // 1) Abandon côté serveur (ACK avec timeout court)
-    await new Promise((resolve) => {
-      let settled = false;
-      const t = setTimeout(() => {
-        if (!settled) { settled = true; resolve({ ok: false, timeout: true }); }
-      }, 1200);
-      try {
-        emit("game:resign", { roomId }, (resp) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(t);
-          resolve(resp || { ok: true });
-        });
-      } catch {
-        if (!settled) { settled = true; clearTimeout(t); resolve({ ok: false }); }
-      }
-    });
+      // Purge locale (empêche l’auto-rejoin)
+      leaveGame();
 
-    // 2) Sortie de room - best effort
-    try {
-      if (roomId) {
-        emit("room_quit", { roomId });
-        emit("leave_room", { roomId });
-      }
-    } catch {}
-
-    // 3) Purge locale (empêche tout auto-resume)
-    leaveGame();
-
-    // 4) Navigation
-    navigate("/lobby", { replace: true });
+      // Retour au menu
+      navigate("/lobby", { replace: true });
+    } finally {
+      setTimeout(() => setQuitting(false), 1000);
+    }
   };
 
   const handleGameOverLocal = (payload) => {
     setGameOver(payload || { reason: "unknown", winner: null });
   };
-
-  const opponent = players.find((p) => String(p?.id) !== String(user?.id));
-  const opponentId = opponent?.id;
-
-  const rematchPrompt = rematchIncoming ? (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-[92%] max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-6 text-stone-100 shadow-xl">
-        <h3 className="text-lg font-semibold mb-2">Rejouer une partie ?</h3>
-        <p className="text-stone-300 mb-5">
-          {players.find(p => String(p.id) === String(rematchIncoming.fromUserId))?.username || "Votre adversaire"} vous propose un rematch.
-        </p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => {
-              emit("rematch:decline", { roomId, fromUserId: rematchIncoming.fromUserId, toUserId: user.id });
-              setRematchIncoming(null);
-            }}
-            className="rounded-lg bg-stone-700 hover:bg-stone-600 active:scale-95 px-4 py-2 text-white transition"
-          >
-            Refuser
-          </button>
-          <button
-            onClick={() => {
-              emit("rematch:accept", { roomId, fromUserId: rematchIncoming.fromUserId, toUserId: user.id });
-              setRematchIncoming(null);
-            }}
-            className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
-          >
-            Accepter
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
 
   const peerQuitModal = peerQuit ? (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -402,44 +306,13 @@ export default function Experience() {
             : "Merci d’avoir joué !"}
         </p>
 
-        <div className="flex justify-between gap-3">
-          {/* Rejouer */}
-          <div className="flex items-center gap-2">
-            {opponentId ? (
-              rematchPending ? (
-                <button
-                  onClick={() => {
-                    emit("rematch:cancel", { roomId, fromUserId: user.id, toUserId: opponentId });
-                    setRematchPending(false);
-                  }}
-                  className="rounded-lg bg-stone-700 hover:bg-stone-600 active:scale-95 px-3 py-2 text-white transition"
-                  title="Annuler la proposition"
-                >
-                  Annuler…
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    emit("rematch:request", { roomId, fromUserId: user.id, toUserId: opponentId });
-                    setRematchPending(true);
-                  }}
-                  className="rounded-lg bg-green-600 hover:bg-green-700 active:scale-95 px-3 py-2 text-white transition"
-                >
-                  Rejouer
-                </button>
-              )
-            ) : null}
-          </div>
-
-          {/* Retour menu */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleQuitGame}
-              className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
-            >
-              Retour au menu
-            </button>
-          </div>
+        <div className="flex justify-end">
+          <button
+            onClick={handleQuitGame}
+            className="rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 px-4 py-2 text-white transition"
+          >
+            Retour au menu
+          </button>
         </div>
       </div>
     </div>
@@ -467,7 +340,6 @@ export default function Experience() {
         {quitButton}
         {peerQuitModal}
         {gameOverModal}
-        {rematchPrompt}
         <Canvas
           flat
           shadows
