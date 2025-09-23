@@ -7,35 +7,45 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
 
-    <title>Immersive Chess</title>
+    <title>Immersive Chess – Jouez aux échecs en 3D</title>
+    <link rel="canonical" href="https://immersive-chess.com/" />
+
+    <!-- Description SEO -->
     <meta
       name="description"
       content="Jouez gratuitement à Immersive Chess, le jeu d’échecs 3D en ligne. Défiez vos amis en temps réel sur mobile et ordinateur."
     />
     <meta name="robots" content="index,follow" />
 
-    <!-- Icônes -->
-    <link rel="apple-touch-icon" sizes="180x180" href="favicon/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon/favicon-16x16.png" />
+    <!-- Icônes / PWA -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
     <meta name="theme-color" content="#0b0b0b" />
 
-    <!-- Open Graph / Facebook -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="fr_FR" />
     <meta property="og:site_name" content="Immersive Chess" />
     <meta property="og:title" content="Immersive Chess – Jouez aux échecs en 3D" />
     <meta property="og:description" content="Défiez vos amis et vivez l’expérience d’un échiquier 3D immersif, en ligne et en temps réel." />
-    <meta property="og:url" content="https://immersive-chess.com" />
-    <meta property="og:image" content="/social/og-image.jpg" />
+    <meta property="og:url" content="https://immersive-chess.com/" />
+    <meta property="og:image" content="https://immersive-chess.com/social/og-image.jpg" />
+    <meta property="og:image:secure_url" content="https://immersive-chess.com/social/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Immersive Chess – plateau 3D et couronne" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Immersive Chess – Jouez aux échecs en 3D" />
     <meta name="twitter:description" content="Jeu d’échecs 3D interactif, jouable sur mobile et desktop. Défiez vos amis autour d’un échiquier immersif en temps réel." />
-    <meta name="twitter:image" content="/social/og-image.jpg" />
+    <meta name="twitter:image" content="https://immersive-chess.com/social/og-image.jpg" />
+    <!-- <meta name="twitter:site" content="@TonCompteTwitter"> -->
 
-    <!-- JSON-LD enrichi -->
+    <!-- JSON-LD -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -43,13 +53,9 @@
       "name": "Immersive Chess",
       "applicationCategory": "GameApplication",
       "operatingSystem": "Web",
-      "url": "https://immersive-chess.com",
+      "url": "https://immersive-chess.com/",
       "description": "Immersive Chess est un jeu d’échecs 3D en ligne. Jouez gratuitement, en temps réel, sur mobile ou desktop.",
       "image": "https://immersive-chess.com/social/og-image.jpg",
-      "author": {
-        "@type": "Organization",
-        "name": "Immersive Chess"
-      },
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -60,7 +66,6 @@
   </head>
   <body>
     <div id="root"></div>
-    
     <script type="module" src="/src/index.jsx"></script>
   </body>
 </html>
