@@ -31,11 +31,15 @@ export default function Experience() {
   const lastStateReqAt = useRef(0);
   const lastAppliedMoveCount = useRef(0);
 
+  // 🚩 Flag pour geler la partie une fois finie
+  const gameFinalized = useRef(false);
+
   useEffect(() => {
     if (!roomId) return;
     setGameUi({ currentRoomId: roomId, isInGame: true });
     return () => {
       lastAppliedMoveCount.current = 0;
+      gameFinalized.current = false; // reset si nouvelle partie
     };
   }, [roomId, setGameUi]);
 
@@ -69,6 +73,7 @@ export default function Experience() {
     }
 
     const handleRoomCreated = ({ players: createdPlayers, yourColor, activeColor }) => {
+      if (gameFinalized.current) return;
       publishPlayers(createdPlayers);
       const names = toNames(createdPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
@@ -81,6 +86,7 @@ export default function Experience() {
     };
 
     const handleRoomJoined = ({ players: joinedPlayers, yourColor, activeColor }) => {
+      if (gameFinalized.current) return;
       publishPlayers(joinedPlayers);
       const names = toNames(joinedPlayers);
       const fallback = names[0] === user.username ? "white" : "black";
@@ -93,10 +99,12 @@ export default function Experience() {
     };
 
     const handlePlayerUpdate = ({ players: updatedPlayers }) => {
+      if (gameFinalized.current) return;
       publishPlayers(updatedPlayers);
     };
 
     const handleMove = (payload) => {
+      if (gameFinalized.current) return;
       const m = payload?.move ?? payload;
       if (!m || !m.from || !m.to) return;
       boardRef.current?.applyMove(m);
@@ -104,14 +112,19 @@ export default function Experience() {
     };
 
     const handleTurnUpdate = ({ activeColor }) => {
+      if (gameFinalized.current) return;
       if (activeColor !== "white" && activeColor !== "black") return;
       const myColorNow = useGameUiStore.getState().myColor || color;
       setGameUi({ turnColor: activeColor, myTurn: myColorNow === activeColor });
     };
 
-    const handlePeerQuit = () => setPeerQuit(true);
+    const handlePeerQuit = () => {
+      if (gameFinalized.current) return; // 🚩 ignorer si la partie est finie
+      setPeerQuit(true);
+    };
 
     const handleServerError = (err) => {
+      if (gameFinalized.current) return;
       const msg = typeof err === "string" ? err : err?.error;
       if (msg === "Room not found") {
         emit("create_room_with_id", { roomId, username: user.username });
@@ -119,6 +132,7 @@ export default function Experience() {
     };
 
     const handleStateSync = (state) => {
+      if (gameFinalized.current) return;
       try {
         const moves = Array.isArray(state?.moves) ? state.moves : [];
         const fen = typeof state?.fen === "string" ? state.fen : null;
@@ -149,6 +163,7 @@ export default function Experience() {
     };
 
     const handleGameSnapshot = (snap) => {
+      if (gameFinalized.current) return;
       try {
         const fen = typeof snap?.fen === "string" ? snap.fen : null;
         if (fen && typeof boardRef.current?.loadFen === "function") {
@@ -165,7 +180,9 @@ export default function Experience() {
     };
 
     const handleGameOverServer = (payload) => {
+      if (gameFinalized.current) return; // 🚩 déjà finalisé
       setGameOver(payload || { reason: "unknown", winner: null });
+      gameFinalized.current = true;
     };
 
     on("room_created", handleRoomCreated);
@@ -240,22 +257,17 @@ export default function Experience() {
     );
   }
 
-  // Quit = abandon + leave + purge + retour lobby (fenêtre anti-yo-yo courte)
+  // Quit = abandon + leave + purge + retour lobby
   const handleQuitGame = async () => {
     if (quitting) return;
     setQuitting(true);
 
     try {
       try { localStorage.setItem("ignoreRoomEventsUntil", String(Date.now() + 3000)); } catch {}
-      // Abandon & sortie best-effort
       try { emit("game:resign", { roomId }, () => {}); } catch {}
       try { emit("room_quit", { roomId }, () => {}); } catch {}
       try { emit("leave_room", { roomId }, () => {}); } catch {}
-
-      // Purge locale (empêche l’auto-rejoin)
       leaveGame();
-
-      // Retour au menu
       navigate("/lobby", { replace: true });
     } finally {
       setTimeout(() => setQuitting(false), 1000);
@@ -263,7 +275,9 @@ export default function Experience() {
   };
 
   const handleGameOverLocal = (payload) => {
+    if (gameFinalized.current) return;
     setGameOver(payload || { reason: "unknown", winner: null });
+    gameFinalized.current = true;
   };
 
   const peerQuitModal = peerQuit ? (
@@ -299,13 +313,11 @@ export default function Experience() {
             ? "Nulle (règle des 50 coups)"
             : "Match nul"}
         </h3>
-
         <p className="text-stone-300 mb-5">
           {gameOver.winner
             ? `Victoire des ${gameOver.winner === "white" ? "Blancs" : "Noirs"}.`
             : "Merci d’avoir joué !"}
         </p>
-
         <div className="flex justify-end">
           <button
             onClick={handleQuitGame}
