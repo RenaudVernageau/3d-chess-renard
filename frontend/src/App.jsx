@@ -20,6 +20,7 @@ import UsersList from "./components/UsersList";
 import Experience from "./experience/Experience";
 import MessagingPage from "./components/MessagingPage";
 import { useGameUiStore } from "./store/useGameUiStore";
+import Legal from "./pages/Legal";
 
 // Overlays
 import CapturedStrip from "./components/CapturedStrip";
@@ -88,6 +89,7 @@ function AppRoutes() {
         {/* Public */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/legal" element={<Legal />} />
 
         {/* Protected */}
         <Route
