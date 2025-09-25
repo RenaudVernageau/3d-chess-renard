@@ -184,8 +184,8 @@ export default function UsersList() {
                       {/* Date JJ/MM/YY pour tous */}
                       <p className="text-sm text-stone-300 truncate">
                         {u?.createdAt
-                          ? `Inscrit depuis le ${formatRegisteredSinceShort(u.createdAt)}`
-                          : "Inscrit depuis : date inconnue"}
+                          ? `Inscrit·e depuis le ${formatRegisteredSinceShort(u.createdAt)}`
+                          : "Inscrit·e depuis : date inconnue"}
                       </p>
                       {/* Email visible uniquement pour les admins */}
                       {isAdmin && u?.email && (
@@ -208,8 +208,8 @@ export default function UsersList() {
                       </div>
                       <p className="text-sm text-stone-300 truncate">
                         {u?.createdAt
-                          ? `Inscrit depuis le ${formatRegisteredSinceShort(u.createdAt)}`
-                          : "Inscrit depuis : date inconnue"}
+                          ? `Inscrit·e depuis le ${formatRegisteredSinceShort(u.createdAt)}`
+                          : "Inscrit·e depuis : date inconnue"}
                       </p>
                       {isAdmin && u?.email && (
                         <p className="text-xs text-stone-400 truncate">{u.email}</p>
