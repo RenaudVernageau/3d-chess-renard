@@ -44,19 +44,19 @@ export function formatListTimestamp(date) {
   return `${new Intl.DateTimeFormat("fr-FR").format(d)} ${formatTimeHHmm(d)}`;
 }
 
-// Regroupe une liste de messages par jour (clé = ISO yyyy-mm-dd)
-export function groupMessagesByDay(messages, getDate = (m) => m.createdAt || m.date) {
-  const map = new Map();
-  for (const m of messages) {
-    const d = new Date(getDate(m));
-    const key = d.toISOString().slice(0, 10);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(m);
+// 👉 Nouveau : format "Inscrit depuis le …"
+export function formatRegisteredSince(isoDateStr) {
+  try {
+    const d = new Date(isoDateStr);
+    if (Number.isNaN(d.getTime())) return "Inscrit depuis : date inconnue";
+    return `Inscrit depuis le ${new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(d)}`;
+  } catch {
+    return "Inscrit depuis : date inconnue";
   }
-  // tri par jour croissant
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, arr]) => ({ key, date: new Date(key), items: arr.sort((a,b)=>new Date(getDate(a))-new Date(getDate(b))) }));
 }
 
 /* helpers */

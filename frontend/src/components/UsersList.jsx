@@ -5,6 +5,7 @@ import { useNavigate, NavLink } from "react-router-dom";
 import { useUserStore } from "../store/useUserStore";
 import { useAuth } from "../hooks/useAuth";
 import api from "../api";
+import { formatRegisteredSince } from "../utils/dates";
 
 function RoleBadge({ role }) {
   const base =
@@ -181,7 +182,12 @@ export default function UsersList() {
                         <RoleBadge role={u?.role || "user"} />
                         {u?.isSuspended ? <SuspendedBadge /> : null}
                       </div>
-                      <p className="text-sm text-stone-300 truncate">{u?.email || ""}</p>
+                      {/* Remplace l'email par l'ancienneté d'inscription */}
+                      <p className="text-sm text-stone-300 truncate">
+                        {u?.createdAt
+                          ? formatRegisteredSince(u.createdAt)
+                          : "Inscrit depuis : date inconnue"}
+                      </p>
                     </div>
                   </NavLink>
                 ) : (
@@ -197,7 +203,12 @@ export default function UsersList() {
                         <RoleBadge role={u?.role || "user"} />
                         {u?.isSuspended ? <SuspendedBadge /> : null}
                       </div>
-                      <p className="text-sm text-stone-300 truncate">{u?.email || ""}</p>
+                      {/* Remplace l'email par l'ancienneté d'inscription */}
+                      <p className="text-sm text-stone-300 truncate">
+                        {u?.createdAt
+                          ? formatRegisteredSince(u.createdAt)
+                          : "Inscrit depuis : date inconnue"}
+                      </p>
                     </div>
                   </div>
                 )}
