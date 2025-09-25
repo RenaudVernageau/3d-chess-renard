@@ -87,7 +87,7 @@ export function ConversationsList({ onSelect, selectedId }) {
   const list = Array.isArray(conversations) ? conversations : [];
 
   return (
-    <aside className="h-full w-full bg-stone-800 p-4 overflow-y-auto">
+    <aside className="h-full w-full bg-stone-800 p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800">
       <h2 className="text-white text-lg font-semibold mb-4">Conversations</h2>
 
       {list.length === 0 ? (
@@ -259,7 +259,7 @@ export function ChatWindow({ otherId, onBack }) {
 
   if (!myId) {
     return (
-      <div className="flex flex-col flex-1 bg-stone-900">
+      <div className="flex flex-col flex-1 bg-stone-900 min-h-0">
         <header className="bg-stone-800 p-4 flex items-center gap-3">
           <button
             onClick={handleBackClick}
@@ -277,7 +277,7 @@ export function ChatWindow({ otherId, onBack }) {
   const canModerate = ["moderator", "admin"].includes(user?.role);
 
   return (
-    <div className="flex flex-col flex-1 bg-stone-900">
+    <div className="flex flex-col flex-1 bg-stone-900 min-h-0">
       {/* Header */}
       <header className="bg-stone-800 p-4 flex items-center gap-3">
         <button

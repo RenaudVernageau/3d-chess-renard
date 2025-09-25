@@ -29,9 +29,9 @@ export default function MessagingPage() {
   };
 
   return (
-    <div className="h-screen flex bg-stone-900">
+    <div className="h-screen flex bg-stone-900 min-h-0">
       {/* LISTE DES CONVERSATIONS */}
-      <div className={selectedUserId ? "hidden md:block md:w-1/3" : "w-full md:w-1/3"}>
+      <div className={selectedUserId ? "hidden md:block md:w-1/3 min-h-0" : "w-full md:w-1/3 min-h-0"}>
         <ConversationsList onSelect={handleSelect} selectedId={selectedUserId} />
       </div>
 
@@ -39,7 +39,7 @@ export default function MessagingPage() {
       <div className="hidden md:block w-px bg-stone-700" />
 
       {/* FENÊTRE DE CHAT */}
-      <div className={selectedUserId ? "flex-1 flex flex-col" : "hidden md:flex md:flex-1"}>
+      <div className={selectedUserId ? "flex-1 flex flex-col min-h-0" : "hidden md:flex md:flex-1 min-h-0"}>
         {selectedUserId ? (
           <ChatWindow otherId={selectedUserId} />
         ) : (
