@@ -155,7 +155,7 @@ export default function UsersList() {
           />
         </div>
 
-        <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+        <ul className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-stone-600 scrollbar-track-stone-800">
           {sorted.map((u, i) => {
             const userId = u?._id ?? u?.id;
             const encodedId = userId ? encodeURIComponent(String(userId)) : null;
