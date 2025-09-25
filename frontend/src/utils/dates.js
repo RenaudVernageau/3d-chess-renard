@@ -14,10 +14,8 @@ export function formatDayLabel(date, { withYear = true } = {}) {
   if (isToday) return "Aujourd’hui";
   if (isYesterday) return "Hier";
 
-  // Même année ? on peut omettre l'année si on veut
   const opts = { weekday: "long", day: "numeric", month: "long" };
   if (withYear && dY !== nY) opts.year = "numeric";
-
   return new Intl.DateTimeFormat("fr-FR", opts).format(d);
 }
 
@@ -26,8 +24,7 @@ export function formatTimeHHmm(date) {
   return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
 }
 
-// Pour la **liste des conversations** (colonne gauche) :
-// -> "Aujourd’hui 23:09", "Hier 19:43", "Lun 11:03" (si même semaine), sinon "12/03/2025 08:10"
+// Pour la liste des conversations
 export function formatListTimestamp(date) {
   const d = typeof date === "string" ? new Date(date) : date;
   const now = new Date();
@@ -36,15 +33,14 @@ export function formatListTimestamp(date) {
   if (diff === 0) return `Aujourd’hui ${formatTimeHHmm(d)}`;
   if (diff === 1) return `Hier ${formatTimeHHmm(d)}`;
 
-  // même semaine ?
-  const wd = new Intl.DateTimeFormat("fr-FR", { weekday: "short" }).format(d); // "lun.", "mar."
+  const wd = new Intl.DateTimeFormat("fr-FR", { weekday: "short" }).format(d);
   const sameWeek = inSameWeek(d, now);
   if (sameWeek) return `${capitalize(wd.replace(".", ""))} ${formatTimeHHmm(d)}`;
 
   return `${new Intl.DateTimeFormat("fr-FR").format(d)} ${formatTimeHHmm(d)}`;
 }
 
-// 👉 Nouveau : format "Inscrit depuis le …"
+// Ancien format long (conservé si besoin ailleurs)
 export function formatRegisteredSince(isoDateStr) {
   try {
     const d = new Date(isoDateStr);
@@ -56,6 +52,21 @@ export function formatRegisteredSince(isoDateStr) {
     }).format(d)}`;
   } catch {
     return "Inscrit depuis : date inconnue";
+  }
+}
+
+// 👉 Nouveau : format court JJ/MM/YY
+export function formatRegisteredSinceShort(isoDateStr) {
+  try {
+    const d = new Date(isoDateStr);
+    if (Number.isNaN(d.getTime())) return "??/??/??";
+    return d.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+    });
+  } catch {
+    return "??/??/??";
   }
 }
 

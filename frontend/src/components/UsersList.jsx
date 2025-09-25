@@ -5,7 +5,7 @@ import { useNavigate, NavLink } from "react-router-dom";
 import { useUserStore } from "../store/useUserStore";
 import { useAuth } from "../hooks/useAuth";
 import api from "../api";
-import { formatRegisteredSince } from "../utils/dates";
+import { formatRegisteredSinceShort } from "../utils/dates";
 
 function RoleBadge({ role }) {
   const base =
@@ -123,7 +123,6 @@ export default function UsersList() {
   };
 
   return (
-    // ✅ Pas de h-screen pour éviter le conflit avec le footer fixe
     <div className="min-h-[60vh] py-10 px-4 flex items-start justify-center">
       <div className="bg-stone-800 text-white rounded-lg p-6 w-full max-w-4xl mx-auto shadow-lg border border-stone-700">
         <div className="flex items-center justify-between mb-4">
@@ -182,12 +181,16 @@ export default function UsersList() {
                         <RoleBadge role={u?.role || "user"} />
                         {u?.isSuspended ? <SuspendedBadge /> : null}
                       </div>
-                      {/* Remplace l'email par l'ancienneté d'inscription */}
+                      {/* Date JJ/MM/YY pour tous */}
                       <p className="text-sm text-stone-300 truncate">
                         {u?.createdAt
-                          ? formatRegisteredSince(u.createdAt)
+                          ? `Inscrit depuis le ${formatRegisteredSinceShort(u.createdAt)}`
                           : "Inscrit depuis : date inconnue"}
                       </p>
+                      {/* Email visible uniquement pour les admins */}
+                      {isAdmin && u?.email && (
+                        <p className="text-xs text-stone-400 truncate">{u.email}</p>
+                      )}
                     </div>
                   </NavLink>
                 ) : (
@@ -203,12 +206,14 @@ export default function UsersList() {
                         <RoleBadge role={u?.role || "user"} />
                         {u?.isSuspended ? <SuspendedBadge /> : null}
                       </div>
-                      {/* Remplace l'email par l'ancienneté d'inscription */}
                       <p className="text-sm text-stone-300 truncate">
                         {u?.createdAt
-                          ? formatRegisteredSince(u.createdAt)
+                          ? `Inscrit depuis le ${formatRegisteredSinceShort(u.createdAt)}`
                           : "Inscrit depuis : date inconnue"}
                       </p>
+                      {isAdmin && u?.email && (
+                        <p className="text-xs text-stone-400 truncate">{u.email}</p>
+                      )}
                     </div>
                   </div>
                 )}
