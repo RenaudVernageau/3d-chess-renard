@@ -1,4 +1,4 @@
-# ♔ 3D Immersive chess
+<img width="1728" height="1117" alt="image" src="https://github.com/user-attachments/assets/bba0c00d-d4f3-4f0a-a5bb-67625fc53985" /># ♔ 3D Immersive chess
 
 A real-time 3D multiplayer chess game with rooms, authentication, and integrated messaging.  
 Built with **React + Vite** (frontend) and **Express + Socket.IO** (backend).  
@@ -125,7 +125,8 @@ Authorization: Bearer <token>
 
 ## 📸 Screenshots (optional)
 
-_(to be added)_  
+_(<img width="1728" height="1117" alt="image" src="https://github.com/user-attachments/assets/38406131-7acc-42d4-aba3-59e4d9c15a13" />
+)_  
 
 ---
 
