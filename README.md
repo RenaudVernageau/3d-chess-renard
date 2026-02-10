@@ -125,8 +125,8 @@ Authorization: Bearer <token>
 
 ## 📸 Screenshots (optional)
 
-_(<img width="1728" height="1117" alt="image" src="https://github.com/user-attachments/assets/38406131-7acc-42d4-aba3-59e4d9c15a13" />
-)_  
+<img width="1728" height="1117" alt="image" src="https://github.com/user-attachments/assets/38406131-7acc-42d4-aba3-59e4d9c15a13" />
+  
 
 ---
 
